@@ -76,7 +76,7 @@ function rateClass(r) { return r >= 80 ? "rate-good" : r >= 60 ? "rate-mid" : "r
    画面切り替え
 ------------------------------------------------------------------ */
 function show(name) {
-  for (const id of ["home", "quiz", "result"]) {
+  for (const id of ["home", "quiz", "result", "notes"]) {
     $("screen-" + id).hidden = (id !== name);
   }
   window.scrollTo(0, 0);

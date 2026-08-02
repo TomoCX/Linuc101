@@ -21,6 +21,7 @@
   </div>
   <div class="topbar-right">
     <span id="topbarStatus"></span>
+    <button class="btn btn-mini" id="btnNotesTop">暗記ノート</button>
     <button class="btn btn-mini" id="btnHelpTop">コマンド表 <kbd>H</kbd></button>
   </div>
 </header>
@@ -105,6 +106,12 @@
       <button class="btn" id="btnShowResult">結果を見る</button>
       <button class="btn btn-ghost" id="btnDiscard">セッションを破棄</button>
     </div>
+  </div>
+
+  <div class="card note-entry">
+    <div class="card-head"><h2>暗記ノート</h2></div>
+    <p class="sync-lead">出題範囲を主題ごとにまとめた学習ノートです。図解つきで、解く前の確認にも復習にも使えます。</p>
+    <div class="chip-row" id="noteJump"></div>
   </div>
 
   <div class="card">
@@ -234,6 +241,23 @@
 
 </section>
 
+<!-- ============================ 暗記ノート ============================ -->
+<section id="screen-notes" class="screen" hidden>
+  <div class="notes-head">
+    <div class="notes-bar">
+      <input type="search" id="noteSearch" placeholder="ノート内を検索（例: SUID, umask, ランレベル）" autocomplete="off">
+      <button class="btn btn-ghost" id="btnNotesHome">ホームへ</button>
+    </div>
+    <div class="chip-row" id="noteThemes"></div>
+    <details class="notes-toc" id="noteToc">
+      <summary>目次</summary>
+      <div id="noteTocList"></div>
+    </details>
+  </div>
+  <div class="notes-body" id="notesBody"></div>
+  <div class="help-empty" id="noteEmpty" hidden>該当する内容が見つかりませんでした。</div>
+</section>
+
 <!-- ============================ 出題 ============================ -->
 <section id="screen-quiz" class="screen" hidden>
 
@@ -326,6 +350,8 @@
 
 <script src="questions.js"></script>
 <script src="commands.js"></script>
+<script src="notes.js"></script>
+<script src="notes-view.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

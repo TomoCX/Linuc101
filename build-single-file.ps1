@@ -15,15 +15,19 @@ $ErrorActionPreference = "Stop"
 $dir = $PSScriptRoot
 if (-not $dir) { $dir = (Get-Location).Path }
 
-$html = [IO.File]::ReadAllText("$dir\index.html")
-$css  = [IO.File]::ReadAllText("$dir\style.css")
-$q    = [IO.File]::ReadAllText("$dir\questions.js")
-$cmd  = [IO.File]::ReadAllText("$dir\commands.js")
-$app  = [IO.File]::ReadAllText("$dir\app.js")
+$html  = [IO.File]::ReadAllText("$dir\index.html")
+$css   = [IO.File]::ReadAllText("$dir\style.css")
+$q     = [IO.File]::ReadAllText("$dir\questions.js")
+$cmd   = [IO.File]::ReadAllText("$dir\commands.js")
+$notes = [IO.File]::ReadAllText("$dir\notes.js")
+$nview = [IO.File]::ReadAllText("$dir\notes-view.js")
+$app   = [IO.File]::ReadAllText("$dir\app.js")
 
 $html = $html.Replace('<link rel="stylesheet" href="style.css">', "<style>`n$css`n</style>")
 $html = $html.Replace('<script src="questions.js"></script>',     "<script>`n$q`n</script>")
 $html = $html.Replace('<script src="commands.js"></script>',      "<script>`n$cmd`n</script>")
+$html = $html.Replace('<script src="notes.js"></script>',         "<script>`n$notes`n</script>")
+$html = $html.Replace('<script src="notes-view.js"></script>',    "<script>`n$nview`n</script>")
 $html = $html.Replace('<script src="app.js"></script>',           "<script>`n$app`n</script>")
 
 # スマホの「ファイル」アプリから開いても文字化けしないよう BOM 付き UTF-8 で保存

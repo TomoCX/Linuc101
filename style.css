@@ -262,6 +262,106 @@ main {
 .cat-table th { color: var(--muted); font-weight: 500; }
 .cat-table th:first-child, .cat-table td:first-child { text-align: left; }
 .cat-table tbody tr:last-child td { border-bottom: none; font-weight: 600; }
+/* ---------------- 進捗の同期 ---------------- */
+.sync-lead {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+.sync-lead b { color: var(--text); font-weight: 600; }
+
+.sync-box {
+  width: 100%;
+  height: 90px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+  word-break: break-all;
+}
+.sync-box:focus { outline: none; border-color: var(--accent); }
+
+.sync-msg {
+  margin-top: 12px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.7;
+  border: 1px solid var(--line);
+  background: var(--card-2);
+  color: var(--text);
+}
+.sync-msg.ok {
+  border-color: rgba(63, 191, 127, .45);
+  background: rgba(63, 191, 127, .1);
+  color: var(--correct);
+}
+.sync-msg.ng {
+  border-color: rgba(239, 95, 107, .45);
+  background: rgba(239, 95, 107, .1);
+  color: var(--wrong);
+}
+
+/* ---------------- 自動同期（Gist） ---------------- */
+.sync-auto {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.sync-status {
+  display: inline-block;
+  margin-bottom: 10px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--card-2);
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.sync-status.on {
+  border-color: rgba(63, 191, 127, .45);
+  background: rgba(63, 191, 127, .1);
+  color: var(--correct);
+}
+.sync-status.busy {
+  border-color: rgba(77, 163, 255, .45);
+  background: rgba(77, 163, 255, .1);
+  color: var(--accent);
+}
+.sync-status.err {
+  border-color: rgba(239, 95, 107, .45);
+  background: rgba(239, 95, 107, .1);
+  color: var(--wrong);
+}
+.sync-input {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Consolas, monospace;
+  font-size: 16px;   /* iOS の自動拡大を防ぐ */
+}
+.sync-input:focus { outline: none; border-color: var(--accent); }
+.hint a { color: var(--accent); }
+.hint code {
+  font-family: Consolas, monospace;
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+.hint-caution { color: var(--warn); }
+
 .cell-assist { color: var(--assist); }
 .rate-good { color: var(--correct); }
 .rate-mid  { color: var(--warn); }

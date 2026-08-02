@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Linuc レベル1 101 問題演習</title>
+<!-- iPhone / iPad：ホーム画面に追加したときにアプリのように全画面で開く -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Linuc 101">
+<meta name="theme-color" content="#0f1420">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand" id="brandHome" title="ホームへ戻る">
+    <span class="logo">$_</span>
+    <span>Linuc <b>101</b> 問題演習</span>
+  </div>
+  <div class="topbar-right">
+    <span id="topbarStatus"></span>
+    <button class="btn btn-mini" id="btnHelpTop">コマンド表 <kbd>H</kbd></button>
+  </div>
+</header>
+
+<!-- ==================== 右側ヘルプパネル ==================== -->
+<button id="helpTab" title="コマンドオプション表を開く（H）">
+  <span class="helpTab-txt">コマンド表</span>
+</button>
+<div id="helpBackdrop"></div>
+
+<aside id="helpPanel" aria-label="コマンドオプション早見表">
+  <div class="help-head">
+    <div class="help-title">
+      <b>コマンドオプション早見表</b>
+      <button class="help-close" id="btnHelpClose" title="閉じる">×</button>
+    </div>
+    <input type="search" id="helpSearch" placeholder="コマンド名・オプション・キーワードで検索（例: tar, -r, 再帰）" autocomplete="off">
+    <label class="check-inline help-keep">
+      <input type="checkbox" id="optKeepHelp">
+      <span>次の問題でも開いたままにする</span>
+      <span class="help-keep-note">（外すと次の問題で自動的に閉じます）</span>
+    </label>
+    <div class="help-groups" id="helpGroups"></div>
+    <div class="help-legend">
+      <span>入力するコマンド</span><span>覚え方</span><span>実際の役割</span>
+    </div>
+  </div>
+  <div class="help-body" id="helpBody"></div>
+</aside>
+
+<main>
+
+<!-- ============================ ホーム ============================ -->
+<section id="screen-home" class="screen">
+
+  <div class="card" id="sessionCard" hidden>
+    <div class="card-head">
+      <h2>現在のセッション</h2>
+      <span class="badge" id="sessionMode"></span>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress-bar">
+        <div class="seg seg-correct" id="barCorrect"></div>
+        <div class="seg seg-assist"  id="barAssist"></div>
+        <div class="seg seg-wrong"   id="barWrong"></div>
+        <div class="seg seg-skip"    id="barSkip"></div>
+      </div>
+      <div class="progress-label" id="progressLabel"></div>
+    </div>
+
+    <div class="stat-grid stat-grid-5">
+      <div class="stat stat-total">
+        <div class="stat-num" id="statTotal">0</div>
+        <div class="stat-lbl">出題数</div>
+      </div>
+      <div class="stat stat-correct">
+        <div class="stat-num" id="statCorrect">0</div>
+        <div class="stat-lbl">正解</div>
+      </div>
+      <div class="stat stat-assist">
+        <div class="stat-num" id="statAssist">0</div>
+        <div class="stat-lbl">正解（参照）</div>
+      </div>
+      <div class="stat stat-wrong">
+        <div class="stat-num" id="statWrong">0</div>
+        <div class="stat-lbl">不正解</div>
+      </div>
+      <div class="stat stat-skip">
+        <div class="stat-num" id="statSkip">0</div>
+        <div class="stat-lbl">未回答</div>
+      </div>
+    </div>
+
+    <div class="rate-line">
+      正答率 <b id="statRate">0%</b>
+      <span class="muted" id="statRateNote"></span>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btnResume">続きから再開</button>
+      <button class="btn" id="btnShowResult">結果を見る</button>
+      <button class="btn btn-ghost" id="btnDiscard">セッションを破棄</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>新しく始める</h2></div>
+
+    <div class="field">
+      <label>出題数</label>
+      <div class="chip-row" id="countChips">
+        <button class="chip" data-count="5">5問</button>
+        <button class="chip" data-count="10">10問</button>
+        <button class="chip is-on" data-count="20">20問</button>
+        <button class="chip" data-count="30">30問</button>
+        <button class="chip" data-count="50">50問</button>
+        <button class="chip" data-count="all">全問</button>
+      </div>
+      <div class="hint" id="countHint"></div>
+    </div>
+
+    <div class="field">
+      <label>出題範囲（カテゴリ）</label>
+      <div class="cat-list" id="catList"></div>
+      <div class="btn-row btn-row-tight">
+        <button class="btn btn-mini" id="btnCatAll">すべて選択</button>
+        <button class="btn btn-mini" id="btnCatNone">すべて解除</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>出題順</label>
+      <div class="chip-row" id="orderChips">
+        <button class="chip is-on" data-order="random">ランダム</button>
+        <button class="chip" data-order="seq">番号順</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="check-inline">
+        <input type="checkbox" id="optWeak">
+        <span>間違えやすい問題を優先して出題する</span>
+      </label>
+      <div class="hint">これまでの累計成績で不正解が多い問題を優先します。</div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary btn-lg" id="btnStart">この設定で開始</button>
+    </div>
+    <div class="warn" id="startWarn" hidden></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2>累計の成績</h2>
+      <button class="btn btn-mini btn-ghost" id="btnResetStats">累計をリセット</button>
+    </div>
+    <table class="cat-table">
+      <thead>
+        <tr><th>カテゴリ</th><th>解答</th><th>正解</th><th>参照</th><th>正答率</th></tr>
+      </thead>
+      <tbody id="lifetimeBody"></tbody>
+    </table>
+  </div>
+
+</section>
+
+<!-- ============================ 出題 ============================ -->
+<section id="screen-quiz" class="screen" hidden>
+
+  <div class="quiz-head">
+    <div class="quiz-progress">
+      <span class="qcount"><b id="qIndex">1</b> / <span id="qTotal">20</span></span>
+      <span class="badge" id="qCat"></span>
+      <span class="badge badge-ghost" id="qId"></span>
+    </div>
+    <div class="quiz-score">
+      <span class="pill pill-correct">正解 <b id="scoreCorrect">0</b></span>
+      <span class="pill pill-assist">参照 <b id="scoreAssist">0</b></span>
+      <span class="pill pill-wrong">不正解 <b id="scoreWrong">0</b></span>
+      <span class="pill pill-skip">未回答 <b id="scoreSkip">0</b></span>
+    </div>
+  </div>
+
+  <div class="progress-bar thin">
+    <div class="seg seg-correct" id="qBarCorrect"></div>
+    <div class="seg seg-assist"  id="qBarAssist"></div>
+    <div class="seg seg-wrong"   id="qBarWrong"></div>
+    <div class="seg seg-skip"    id="qBarSkip"></div>
+  </div>
+
+  <div class="card question-card">
+    <p class="question-text" id="questionText"></p>
+    <div class="multi-note" id="multiNote" hidden>複数選択の問題です。選んでから「解答する」を押してください。</div>
+    <div class="help-used-note" id="helpUsedNote" hidden>
+      コマンド表を参照しています。この問題は正解しても<b>「正解（参照）」</b>として、自力の正解とは分けて記録されます。
+    </div>
+    <div class="choices" id="choices"></div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btnAnswer" hidden>解答する</button>
+      <button class="btn btn-ghost" id="btnSkip">スキップ（未回答）</button>
+      <button class="btn btn-help" id="btnHelpQuiz">コマンド表を開く</button>
+    </div>
+
+    <div class="explain" id="explain" hidden>
+      <div class="verdict" id="verdict"></div>
+      <div class="verdict-note" id="verdictNote" hidden></div>
+      <div class="explain-body">
+        <div class="explain-answer" id="explainAnswer"></div>
+        <p class="explain-text" id="explainText"></p>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary btn-lg" id="btnNext">次の問題へ</button>
+        <button class="btn btn-downgrade" id="btnDowngrade" hidden>不正解にする</button>
+      </div>
+      <div class="hint">Enter / スペースでも次へ進めます</div>
+    </div>
+  </div>
+
+  <div class="btn-row btn-row-center">
+    <button class="btn btn-ghost" id="btnPause">中断してホームへ</button>
+  </div>
+</section>
+
+<!-- ============================ 結果 ============================ -->
+<section id="screen-result" class="screen" hidden>
+  <div class="card result-hero">
+    <div class="score-circle" id="scoreCircle">
+      <div class="score-rate" id="resultRate">0%</div>
+      <div class="score-sub" id="resultSub">0 / 0 問正解</div>
+    </div>
+    <div class="result-msg" id="resultMsg"></div>
+
+    <div class="stat-grid stat-grid-5">
+      <div class="stat stat-total"><div class="stat-num" id="rTotal">0</div><div class="stat-lbl">出題数</div></div>
+      <div class="stat stat-correct"><div class="stat-num" id="rCorrect">0</div><div class="stat-lbl">正解</div></div>
+      <div class="stat stat-assist"><div class="stat-num" id="rAssist">0</div><div class="stat-lbl">正解（参照）</div></div>
+      <div class="stat stat-wrong"><div class="stat-num" id="rWrong">0</div><div class="stat-lbl">不正解</div></div>
+      <div class="stat stat-skip"><div class="stat-num" id="rSkip">0</div><div class="stat-lbl">未回答</div></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btnRetryWrong">間違えた問題だけ再挑戦</button>
+      <button class="btn" id="btnRetrySame">同じ設定でもう一度</button>
+      <button class="btn btn-ghost" id="btnHomeFromResult">ホームへ</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>解答一覧</h2></div>
+    <div class="review-list" id="reviewList"></div>
+  </div>
+</section>
+
+</main>
+
+<script src="questions.js"></script>
+<script src="commands.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -249,6 +249,13 @@
       <button class="btn btn-ghost" id="btnNotesHome">ホームへ</button>
     </div>
     <div class="chip-row" id="noteThemes"></div>
+    <div class="learn-bar">
+      <span id="learnProgress"></span>
+      <label class="check-inline learn-filter">
+        <input type="checkbox" id="optOnlyUnlearned">
+        <span>覚えていない項目だけ表示</span>
+      </label>
+    </div>
     <details class="notes-toc" id="noteToc">
       <summary>目次</summary>
       <div id="noteTocList"></div>
@@ -336,6 +343,7 @@
     <div class="btn-row">
       <button class="btn btn-primary" id="btnRetryWrong">間違えた問題だけ再挑戦</button>
       <button class="btn" id="btnRetrySame">同じ設定でもう一度</button>
+      <button class="btn" id="btnBackToNote" hidden>ノートに戻る</button>
       <button class="btn btn-ghost" id="btnHomeFromResult">ホームへ</button>
     </div>
   </div>
@@ -349,6 +357,7 @@
 </main>
 
 <script src="questions.js"></script>
+<script src="questions-sec.js"></script>
 <script src="commands.js"></script>
 <script src="notes.js"></script>
 <script src="notes-view.js"></script>

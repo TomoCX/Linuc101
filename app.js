@@ -5,6 +5,7 @@
 const SESSION_KEY = "linuc101.session.v1";
 const STATS_KEY   = "linuc101.stats.v1";
 const CONFIG_KEY  = "linuc101.config.v1";
+const LEARNED_KEY = "linuc101.learned.v1";   // ノートの「覚えた」チェック
 const STAMP_KEY   = "linuc101.stamp.v1";     // 進捗を最後に変更した時刻
 const GIST_KEY    = "linuc101.gist.v1";      // 自動同期の設定（トークン等）
 
@@ -27,7 +28,7 @@ function save(key, val) {
   try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) { /* 保存不可でも継続 */ }
 
   // 進捗に関わる保存なら、変更時刻を記録して自動同期を予約する
-  if (key === SESSION_KEY || key === STATS_KEY || key === CONFIG_KEY) {
+  if (key === SESSION_KEY || key === STATS_KEY || key === CONFIG_KEY || key === LEARNED_KEY) {
     lastChangeAt = Date.now();
     try { localStorage.setItem(STAMP_KEY, JSON.stringify(lastChangeAt)); } catch (e) { /* noop */ }
     if (!syncMuted) scheduleGistPush();
@@ -38,6 +39,7 @@ let session = load(SESSION_KEY, null);
 let stats   = load(STATS_KEY, {});          // { qid: {c:正解数, w:不正解数, a:参照正解数} }
 let config  = load(CONFIG_KEY, { count: 20, cats: Object.keys(CATEGORIES), order: "random", weak: false, keepHelp: true });
 
+let learned = load(LEARNED_KEY, {});        // { "主題/見出し": true } 覚えたノートの節
 let lastChangeAt = load(STAMP_KEY, 0);      // 進捗の最終変更時刻（同期の新旧判定に使う）
 let gist        = load(GIST_KEY, { token: "", id: "", auto: true, lastSyncAt: 0 });
 let syncMuted   = false;                    // 同期由来の書き込み中は再送しない
@@ -491,6 +493,9 @@ function renderResult() {
     rate >= 60 ? "あと一歩。間違えた問題の再挑戦がおすすめです。" :
                  "解説を読み直して、同じ範囲をもう一周しましょう。";
 
+  // ノートの節から始めた場合は、戻る導線を出す
+  $("btnBackToNote").hidden = !session.from;
+
   // 自力で正解できなかった問題（参照つき正解・未回答も含む）を再挑戦の対象にする
   const wrongIds = session.order.filter((id, i) => session.results[i] !== "correct");
   $("btnRetryWrong").disabled = wrongIds.length === 0;
@@ -649,6 +654,14 @@ $("btnRetrySame").addEventListener("click", () => {
   renderQuiz();
 });
 $("btnHomeFromResult").addEventListener("click", renderHome);
+$("btnBackToNote").addEventListener("click", () => {
+  const key = session && session.from;
+  showNotes();
+  if (key) {
+    const el = document.querySelector('#notesBody .note-sec[data-key="' + CSS.escape(key) + '"]');
+    if (el) el.scrollIntoView({ block: "start" });
+  }
+});
 
 // キーボード操作
 document.addEventListener("keydown", (e) => {
@@ -907,7 +920,8 @@ function buildPayload() {
     questions: QUESTIONS.length,
     session: session,
     stats: stats,
-    config: config
+    config: config,
+    learned: learned
   };
 }
 
@@ -982,6 +996,9 @@ function applyPayload(data, silent) {
   stats = (data.stats && typeof data.stats === "object") ? data.stats : {};
   save(STATS_KEY, stats);
 
+  learned = (data.learned && typeof data.learned === "object") ? data.learned : {};
+  save(LEARNED_KEY, learned);
+
   session = normalizeSession(data.session);
   if (session) save(SESSION_KEY, session);
   else localStorage.removeItem(SESSION_KEY);
@@ -1000,6 +1017,7 @@ function applyPayload(data, silent) {
   syncMuted = false;
 
   applyConfigToForm();
+  if (typeof refreshLearnedUI === "function") refreshLearnedUI();
   renderHome();
   if (!silent) {
     syncMessage("読み込みました（" + fmtDate(data.savedAt) + " 時点、累計 " +

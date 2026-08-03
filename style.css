@@ -345,13 +345,71 @@ main {
   margin-bottom: 14px;
   scroll-margin-top: 200px;   /* 上部の検索バーに隠れないようにする */
 }
-.note-sec h3 {
-  margin: 0 0 12px;
-  font-size: 15.5px;
-  color: var(--accent);
+.note-sec-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--line);
 }
+.note-sec h3 {
+  margin: 0;
+  font-size: 15.5px;
+  color: var(--accent);
+}
+.note-sec-act { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.note-quiz {
+  border-color: rgba(77, 163, 255, .5);
+  color: var(--accent);
+  background: rgba(77, 163, 255, .08);
+  white-space: nowrap;
+}
+.note-quiz:hover { border-color: var(--accent); background: rgba(77, 163, 255, .2); }
+.learn-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card-2);
+  font-size: 12.5px;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.learn-check input { accent-color: var(--correct); width: 15px; height: 15px; }
+.learn-check:hover { border-color: var(--correct); }
+
+/* 覚えた項目 */
+.note-sec.is-learned { border-color: rgba(63, 191, 127, .45); }
+.note-sec.is-learned .note-sec-head { border-bottom-color: rgba(63, 191, 127, .35); }
+.note-sec.is-learned h3::before {
+  content: "✓ ";
+  color: var(--correct);
+}
+.note-sec.is-learned .learn-check {
+  border-color: rgba(63, 191, 127, .5);
+  background: rgba(63, 191, 127, .12);
+  color: var(--correct);
+}
+
+.learn-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.learn-bar b { color: var(--correct); font-size: 15px; }
+.learn-filter { font-size: 12.5px; }
+.toc-link.is-learned { color: var(--correct); }
 .note-sec h4 { margin: 20px 0 8px; font-size: 14px; color: var(--warn); }
 .note-sec h5 { margin: 16px 0 6px; font-size: 13px; color: var(--muted); }
 .note-sec p  { margin: 10px 0; font-size: 14.5px; line-height: 1.9; }

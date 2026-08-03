@@ -403,15 +403,25 @@ function parseNotes(md) {
     if (!cur) { cur = { theme, themeTitle, title: themeTitle, lines: [] }; list.push(cur); }
     cur.lines.push(line);
   }
-  return list;
+  // 見出しだけで中身のない節（大見出しの直後など）は除く
+  return list.filter(s => s.lines.some(l => l.trim()));
 }
 
 const NOTE_SECTIONS = parseNotes(typeof NOTES_MD === "string" ? NOTES_MD : "");
-let noteTheme = null;      // 絞り込み中の主題（null = すべて）
+let noteTheme = null;          // 絞り込み中の主題（null = すべて）
+let onlyUnlearned = false;     // 覚えていない項目だけ表示するか
 let notesBuilt = false;
 
 function noteThemeLabel(t) {
   return t === "00" ? "全体" : t;
+}
+
+// 節のキー（"主題/見出し"）。問題データの sec と対応する
+function noteKey(sec) { return sec.theme + "/" + sec.title; }
+
+// その節に紐づく問題の数
+function sectionQuestionCount(key) {
+  return QUESTIONS.filter(q => q.sec === key).length;
 }
 
 function buildNotes() {
@@ -430,19 +440,79 @@ function buildNotes() {
       lastTheme = sec.theme;
     }
 
+    const key = noteKey(sec);
+    const n = sectionQuestionCount(key);
+
     const art = document.createElement("article");
     art.className = "note-sec";
     art.id = "note-sec-" + idx;
     art.dataset.theme = sec.theme;
     art.dataset.title = sec.title;
+    art.dataset.key = key;
 
     const fig = NOTE_FIGURES[sec.title] ? '<div class="note-fig">' + NOTE_FIGURES[sec.title] + "</div>" : "";
-    art.innerHTML = "<h3>" + noteEsc(sec.title) + "</h3>" + fig + mdToHtml(sec.lines);
+    art.innerHTML =
+      '<div class="note-sec-head">' +
+        "<h3>" + noteEsc(sec.title) + "</h3>" +
+        '<div class="note-sec-act">' +
+          (n ? '<button class="btn btn-mini note-quiz" data-key="' + noteEsc(key) + '">問題を解く（' + n + '問）</button>' : "") +
+          '<label class="learn-check"><input type="checkbox" class="learn-box" data-key="' + noteEsc(key) + '"><span>覚えた</span></label>' +
+        "</div>" +
+      "</div>" +
+      fig + mdToHtml(sec.lines);
     body.appendChild(art);
   });
 
+  // チェックボックスと出題ボタン（イベントは委譲でまとめて処理）
+  body.addEventListener("change", (e) => {
+    const box = e.target.closest(".learn-box");
+    if (!box) return;
+    const key = box.dataset.key;
+    if (box.checked) learned[key] = true; else delete learned[key];
+    save(LEARNED_KEY, learned);
+    box.closest(".note-sec").classList.toggle("is-learned", box.checked);
+    updateLearnProgress();
+  });
+  body.addEventListener("click", (e) => {
+    const btn = e.target.closest(".note-quiz");
+    if (!btn) return;
+    startSectionQuiz(btn.dataset.key);
+  });
+
+  refreshLearnedUI();
   buildNoteToc();
   notesBuilt = true;
+}
+
+// 「覚えた」の状態を画面に反映する（同期で取り込んだときにも呼ばれる）
+function refreshLearnedUI() {
+  document.querySelectorAll("#notesBody .note-sec").forEach(el => {
+    const on = !!learned[el.dataset.key];
+    const box = el.querySelector(".learn-box");
+    if (box) box.checked = on;
+    el.classList.toggle("is-learned", on);
+  });
+  updateLearnProgress();
+  buildNoteToc();
+}
+
+function updateLearnProgress() {
+  const el = document.getElementById("learnProgress");
+  if (!el) return;
+  const total = NOTE_SECTIONS.length;
+  const done = NOTE_SECTIONS.filter(s => learned[noteKey(s)]).length;
+  const pctDone = total ? Math.round((done / total) * 100) : 0;
+  el.innerHTML = "覚えた <b>" + done + "</b> / " + total + " 項目（" + pctDone + "%）";
+}
+
+// ノートの節から、その範囲だけの問題を出題する
+function startSectionQuiz(key) {
+  const ids = QUESTIONS.filter(q => q.sec === key).map(q => q.id);
+  if (!ids.length) return;
+  startSession(shuffle(ids));
+  session.from = key;
+  save(SESSION_KEY, session);
+  renderQuiz();
 }
 
 function buildNoteToc() {
@@ -451,6 +521,7 @@ function buildNoteToc() {
   let lastTheme = null;
   NOTE_SECTIONS.forEach((sec, idx) => {
     if (noteTheme && sec.theme !== noteTheme) return;
+    if (onlyUnlearned && learned[noteKey(sec)]) return;
     if (sec.theme !== lastTheme) {
       const h = document.createElement("div");
       h.className = "toc-theme";
@@ -459,8 +530,8 @@ function buildNoteToc() {
       lastTheme = sec.theme;
     }
     const a = document.createElement("button");
-    a.className = "toc-link";
-    a.textContent = sec.title;
+    a.className = "toc-link" + (learned[noteKey(sec)] ? " is-learned" : "");
+    a.textContent = (learned[noteKey(sec)] ? "✓ " : "") + sec.title;
     a.addEventListener("click", () => {
       document.getElementById("noteToc").open = false;
       const el = document.getElementById("note-sec-" + idx);
@@ -477,7 +548,8 @@ function filterNotes() {
   document.querySelectorAll("#notesBody .note-sec").forEach(el => {
     const themeOk = !noteTheme || el.dataset.theme === noteTheme;
     const textOk = !q || el.textContent.toLowerCase().includes(q);
-    const show = themeOk && textOk;
+    const learnOk = !onlyUnlearned || !learned[el.dataset.key];
+    const show = themeOk && textOk && learnOk;
     el.hidden = !show;
     if (show) hit++;
   });
@@ -552,4 +624,9 @@ function renderNoteJump() {
 document.getElementById("btnNotesTop").addEventListener("click", () => showNotes());
 document.getElementById("btnNotesHome").addEventListener("click", () => renderHome());
 document.getElementById("noteSearch").addEventListener("input", filterNotes);
+document.getElementById("optOnlyUnlearned").addEventListener("change", (e) => {
+  onlyUnlearned = e.target.checked;
+  buildNoteToc();
+  filterNotes();
+});
 renderNoteJump();

@@ -1130,6 +1130,10 @@ body.help-open #helpTab { display: none; }
   .brand { font-size: 14px; }
   .brand span:not(.logo) { display: none; }   /* 幅が狭いときはロゴだけにする */
   .note-sec { scroll-margin-top: 250px; padding: 14px 14px 16px; }
+  .learn-bar { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .note-sec-head { gap: 8px; }
+  .note-sec-act { width: 100%; }
+  .note-quiz { flex: 1 1 auto; }
   .note-theme { font-size: 14.5px; padding: 9px 12px; }
   .note-sec p, .note-sec ul, .note-sec ol { font-size: 14px; }
   .cat-table { font-size: 12px; }

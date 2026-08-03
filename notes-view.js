@@ -472,6 +472,7 @@ function buildNotes() {
     save(LEARNED_KEY, learned);
     box.closest(".note-sec").classList.toggle("is-learned", box.checked);
     updateLearnProgress();
+    buildNoteToc();          // 目次の ✓ 表示も更新する
   });
   body.addEventListener("click", (e) => {
     const btn = e.target.closest(".note-quiz");

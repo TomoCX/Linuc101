@@ -642,13 +642,17 @@ $("btnPause").addEventListener("click", () => { save(SESSION_KEY, session); rend
 $("brandHome").addEventListener("click", () => { if (session) save(SESSION_KEY, session); renderHome(); });
 
 $("btnRetryWrong").addEventListener("click", () => {
+  const from = session.from;
   const ids = session.order.filter((id, i) => session.results[i] !== "correct");
   if (!ids.length) return;
   startSession(shuffle(ids));
+  if (from) session.from = from;          // ノートへ戻る導線を保つ
   save(SESSION_KEY, session);
   renderQuiz();
 });
 $("btnRetrySame").addEventListener("click", () => {
+  // ノートの節から始めた場合は、同じ節をもう一度出題する
+  if (session.from) { startSectionQuiz(session.from); return; }
   startSession(null);
   save(SESSION_KEY, session);
   renderQuiz();

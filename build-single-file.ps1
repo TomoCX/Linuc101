@@ -22,6 +22,8 @@ $qsec  = [IO.File]::ReadAllText("$dir\questions-sec.js")
 $cmd   = [IO.File]::ReadAllText("$dir\commands.js")
 $notes = [IO.File]::ReadAllText("$dir\notes.js")
 $nview = [IO.File]::ReadAllText("$dir\notes-view.js")
+$cards = [IO.File]::ReadAllText("$dir\cards.js")
+$cview = [IO.File]::ReadAllText("$dir\cards-view.js")
 $app   = [IO.File]::ReadAllText("$dir\app.js")
 
 $html = $html.Replace('<link rel="stylesheet" href="style.css">', "<style>`n$css`n</style>")
@@ -30,6 +32,8 @@ $html = $html.Replace('<script src="questions-sec.js"></script>',  "<script>`n$q
 $html = $html.Replace('<script src="commands.js"></script>',      "<script>`n$cmd`n</script>")
 $html = $html.Replace('<script src="notes.js"></script>',         "<script>`n$notes`n</script>")
 $html = $html.Replace('<script src="notes-view.js"></script>',    "<script>`n$nview`n</script>")
+$html = $html.Replace('<script src="cards.js"></script>',         "<script>`n$cards`n</script>")
+$html = $html.Replace('<script src="cards-view.js"></script>',    "<script>`n$cview`n</script>")
 $html = $html.Replace('<script src="app.js"></script>',           "<script>`n$app`n</script>")
 
 # スマホの「ファイル」アプリから開いても文字化けしないよう BOM 付き UTF-8 で保存

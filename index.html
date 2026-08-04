@@ -21,6 +21,7 @@
   </div>
   <div class="topbar-right">
     <span id="topbarStatus"></span>
+    <button class="btn btn-mini" id="btnCardsTop">単語帳</button>
     <button class="btn btn-mini" id="btnNotesTop">暗記ノート</button>
     <button class="btn btn-mini" id="btnHelpTop">コマンド表 <kbd>H</kbd></button>
   </div>
@@ -112,6 +113,12 @@
     <div class="card-head"><h2>暗記ノート</h2></div>
     <p class="sync-lead">出題範囲を主題ごとにまとめた学習ノートです。図解つきで、解く前の確認にも復習にも使えます。</p>
     <div class="chip-row" id="noteJump"></div>
+  </div>
+
+  <div class="card note-entry">
+    <div class="card-head"><h2>単語帳</h2></div>
+    <p class="sync-lead">単語・コマンドとその意味を1枚ずつめくって覚えます。セクションごとにも、全部まとめてランダムにも使えます。</p>
+    <div class="chip-row" id="cardJump"></div>
   </div>
 
   <div class="card">
@@ -241,6 +248,49 @@
 
 </section>
 
+<!-- ============================ 単語帳 ============================ -->
+<section id="screen-cards" class="screen" hidden>
+  <div class="notes-head">
+    <div class="notes-bar">
+      <select id="cardSec" class="card-select"></select>
+      <button class="btn btn-ghost" id="btnCardsHome">ホームへ</button>
+    </div>
+    <div class="chip-row" id="cardModeChips">
+      <button class="chip is-on" data-mode="card">1枚ずつ</button>
+      <button class="chip" data-mode="list">一覧</button>
+      <button class="chip" data-order="shuffle">シャッフル</button>
+    </div>
+    <div class="learn-bar">
+      <span id="cardProgress"></span>
+      <label class="check-inline learn-filter">
+        <input type="checkbox" id="optHideKnown">
+        <span>覚えたカードを隠す</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- 1枚ずつ表示 -->
+  <div id="cardSingle">
+    <div class="flashcard" id="flashcard">
+      <div class="fc-sec" id="fcSec"></div>
+      <div class="fc-term" id="fcTerm"></div>
+      <div class="fc-mean" id="fcMean" hidden></div>
+      <div class="fc-tap" id="fcTap">タップまたはスペースキーで意味を表示</div>
+    </div>
+    <div class="fc-bar">
+      <button class="btn" id="btnCardPrev">← 前へ</button>
+      <label class="learn-check fc-check"><input type="checkbox" id="fcLearned"><span>覚えた</span></label>
+      <button class="btn btn-primary" id="btnCardNext">次へ →</button>
+    </div>
+    <div class="fc-pos" id="fcPos"></div>
+    <div class="hint fc-hint">← → で移動 ／ スペースで意味の表示切替 ／ Enter で「覚えた」</div>
+  </div>
+
+  <!-- 一覧表示 -->
+  <div id="cardList" class="card-list" hidden></div>
+  <div class="help-empty" id="cardEmpty" hidden>表示できるカードがありません。</div>
+</section>
+
 <!-- ============================ 暗記ノート ============================ -->
 <section id="screen-notes" class="screen" hidden>
   <div class="notes-head">
@@ -361,6 +411,8 @@
 <script src="commands.js"></script>
 <script src="notes.js"></script>
 <script src="notes-view.js"></script>
+<script src="cards.js"></script>
+<script src="cards-view.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

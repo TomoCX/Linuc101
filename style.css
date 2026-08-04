@@ -18,6 +18,9 @@
 
 * { box-sizing: border-box; }
 
+/* hidden 属性を確実に効かせる（display 指定のある要素に負けないように） */
+[hidden] { display: none !important; }
+
 html, body {
   margin: 0;
   padding: 0;
@@ -262,6 +265,99 @@ main {
 .cat-table th { color: var(--muted); font-weight: 500; }
 .cat-table th:first-child, .cat-table td:first-child { text-align: left; }
 .cat-table tbody tr:last-child td { border-bottom: none; font-weight: 600; }
+/* ==================================================================
+   単語帳
+================================================================== */
+.card-select {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--card);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 15px;
+}
+.card-select:focus { outline: none; border-color: var(--accent); }
+
+.flashcard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-height: 300px;
+  padding: 30px 26px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: linear-gradient(160deg, var(--card), var(--card-2));
+  cursor: pointer;
+  user-select: none;
+  text-align: center;
+  transition: border-color .15s;
+}
+.flashcard:hover { border-color: var(--accent); }
+.flashcard.is-learned { border-color: rgba(63, 191, 127, .5); }
+.fc-sec {
+  position: absolute;
+  top: 12px; left: 16px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.fc-term {
+  font-size: 27px;
+  font-weight: 700;
+  line-height: 1.5;
+  font-family: Consolas, "Segoe UI", "Yu Gothic UI", sans-serif;
+  word-break: break-word;
+}
+.fc-mean {
+  font-size: 15.5px;
+  line-height: 1.9;
+  color: var(--text);
+  max-width: 46em;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  animation: fadein .18s ease;
+}
+.fc-tap { font-size: 12.5px; color: var(--muted); }
+
+.fc-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+}
+.fc-bar .btn { min-width: 96px; }
+.fc-check { padding: 7px 14px 7px 12px; font-size: 13.5px; }
+.fc-pos { text-align: center; margin-top: 10px; font-size: 13px; color: var(--muted); }
+.fc-hint { text-align: center; }
+
+.card-list { display: flex; flex-direction: column; gap: 8px; }
+.card-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+}
+.card-row.is-learned { border-color: rgba(63, 191, 127, .45); background: rgba(63, 191, 127, .06); }
+.card-row-check { flex: 0 0 auto; }
+.card-row-body { min-width: 0; }
+.card-row-term {
+  font-family: Consolas, "Segoe UI", sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  word-break: break-word;
+}
+.card-row-mean { font-size: 13.5px; color: var(--muted); line-height: 1.8; }
+
 /* ==================================================================
    暗記ノート
 ================================================================== */
@@ -1131,6 +1227,12 @@ body.help-open #helpTab { display: none; }
   .brand span:not(.logo) { display: none; }   /* 幅が狭いときはロゴだけにする */
   .note-sec { scroll-margin-top: 250px; padding: 14px 14px 16px; }
   .learn-bar { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .flashcard { min-height: 240px; padding: 34px 16px 22px; }
+  .fc-term { font-size: 22px; }
+  .fc-mean { font-size: 14.5px; }
+  .fc-bar .btn { min-width: 0; flex: 1 1 0; }
+  .fc-check { flex: 0 0 auto; }
+  .card-row { flex-direction: column; gap: 8px; }
   .note-sec-head { gap: 8px; }
   .note-sec-act { width: 100%; }
   .note-quiz { flex: 1 1 auto; }

@@ -6,6 +6,7 @@ const SESSION_KEY = "linuc101.session.v1";
 const STATS_KEY   = "linuc101.stats.v1";
 const CONFIG_KEY  = "linuc101.config.v1";
 const LEARNED_KEY = "linuc101.learned.v1";   // ノートの「覚えた」チェック
+const CARDS_KEY   = "linuc101.cards.v1";     // 単語帳の「覚えた」チェック
 const STAMP_KEY   = "linuc101.stamp.v1";     // 進捗を最後に変更した時刻
 const GIST_KEY    = "linuc101.gist.v1";      // 自動同期の設定（トークン等）
 
@@ -28,7 +29,8 @@ function save(key, val) {
   try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) { /* 保存不可でも継続 */ }
 
   // 進捗に関わる保存なら、変更時刻を記録して自動同期を予約する
-  if (key === SESSION_KEY || key === STATS_KEY || key === CONFIG_KEY || key === LEARNED_KEY) {
+  if (key === SESSION_KEY || key === STATS_KEY || key === CONFIG_KEY ||
+      key === LEARNED_KEY || key === CARDS_KEY) {
     lastChangeAt = Date.now();
     try { localStorage.setItem(STAMP_KEY, JSON.stringify(lastChangeAt)); } catch (e) { /* noop */ }
     if (!syncMuted) scheduleGistPush();
@@ -40,6 +42,7 @@ let stats   = load(STATS_KEY, {});          // { qid: {c:正解数, w:不正解�
 let config  = load(CONFIG_KEY, { count: 20, cats: Object.keys(CATEGORIES), order: "random", weak: false, keepHelp: true });
 
 let learned = load(LEARNED_KEY, {});        // { "主題/見出し": true } 覚えたノートの節
+let cardsLearned = load(CARDS_KEY, {});     // { カードID: true } 覚えた単語帳のカード
 let lastChangeAt = load(STAMP_KEY, 0);      // 進捗の最終変更時刻（同期の新旧判定に使う）
 let gist        = load(GIST_KEY, { token: "", id: "", auto: true, lastSyncAt: 0 });
 let syncMuted   = false;                    // 同期由来の書き込み中は再送しない
@@ -78,7 +81,7 @@ function rateClass(r) { return r >= 80 ? "rate-good" : r >= 60 ? "rate-mid" : "r
    画面切り替え
 ------------------------------------------------------------------ */
 function show(name) {
-  for (const id of ["home", "quiz", "result", "notes"]) {
+  for (const id of ["home", "quiz", "result", "notes", "cards"]) {
     $("screen-" + id).hidden = (id !== name);
   }
   window.scrollTo(0, 0);
@@ -925,7 +928,8 @@ function buildPayload() {
     session: session,
     stats: stats,
     config: config,
-    learned: learned
+    learned: learned,
+    cards: cardsLearned
   };
 }
 
@@ -1003,6 +1007,9 @@ function applyPayload(data, silent) {
   learned = (data.learned && typeof data.learned === "object") ? data.learned : {};
   save(LEARNED_KEY, learned);
 
+  cardsLearned = (data.cards && typeof data.cards === "object") ? data.cards : {};
+  save(CARDS_KEY, cardsLearned);
+
   session = normalizeSession(data.session);
   if (session) save(SESSION_KEY, session);
   else localStorage.removeItem(SESSION_KEY);
@@ -1022,6 +1029,7 @@ function applyPayload(data, silent) {
 
   applyConfigToForm();
   if (typeof refreshLearnedUI === "function") refreshLearnedUI();
+  if (typeof refreshCardsUI === "function") refreshCardsUI();
   renderHome();
   if (!silent) {
     syncMessage("読み込みました（" + fmtDate(data.savedAt) + " 時点、累計 " +

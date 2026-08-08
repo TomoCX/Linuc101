@@ -24,6 +24,7 @@ $notes = [IO.File]::ReadAllText("$dir\notes.js")
 $nview = [IO.File]::ReadAllText("$dir\notes-view.js")
 $cards = [IO.File]::ReadAllText("$dir\cards.js")
 $cview = [IO.File]::ReadAllText("$dir\cards-view.js")
+$gloss = [IO.File]::ReadAllText("$dir\glossary.js")
 $app   = [IO.File]::ReadAllText("$dir\app.js")
 
 $html = $html.Replace('<link rel="stylesheet" href="style.css">', "<style>`n$css`n</style>")
@@ -34,6 +35,7 @@ $html = $html.Replace('<script src="notes.js"></script>',         "<script>`n$no
 $html = $html.Replace('<script src="notes-view.js"></script>',    "<script>`n$nview`n</script>")
 $html = $html.Replace('<script src="cards.js"></script>',         "<script>`n$cards`n</script>")
 $html = $html.Replace('<script src="cards-view.js"></script>',    "<script>`n$cview`n</script>")
+$html = $html.Replace('<script src="glossary.js"></script>',      "<script>`n$gloss`n</script>")
 $html = $html.Replace('<script src="app.js"></script>',           "<script>`n$app`n</script>")
 
 # スマホの「ファイル」アプリから開いても文字化けしないよう BOM 付き UTF-8 で保存

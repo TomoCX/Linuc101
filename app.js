@@ -365,7 +365,8 @@ function judge(picked) {
 
   const ansLabel = q.answer.map(i => KEYS[i] || (i + 1)).join("・");
   $("explainAnswer").textContent = "正解： " + ansLabel + "　" + q.answer.map(i => q.choices[i]).join(" ／ ");
-  $("explainText").textContent = q.exp;
+  // 解説中の用語はクリックで説明が出るようにする
+  $("explainText").innerHTML = glossHtml(q.exp);
 
   $("btnAnswer").hidden = true;
   $("btnSkip").hidden = true;
@@ -542,7 +543,7 @@ function renderResult() {
       '<div class="rline"><span class="rlabel">正解：</span><span class="rc">' +
         escapeHtml(q.answer.map(n => (KEYS[n] || n + 1) + ". " + q.choices[n]).join(" ／ ")) +
       "</span></div>" +
-      '<div class="review-exp">' + escapeHtml(q.exp) + "</div>";
+      '<div class="review-exp">' + glossHtml(q.exp) + "</div>";
 
     head.addEventListener("click", () => { body.hidden = !body.hidden; });
     item.appendChild(head);
@@ -673,6 +674,7 @@ $("btnBackToNote").addEventListener("click", () => {
 // キーボード操作
 document.addEventListener("keydown", (e) => {
   if (isTyping(e.target)) return;
+  if (e.target.closest && e.target.closest(".gloss")) return;   // 用語の説明を開く操作を優先
   if ($("screen-quiz").hidden) return;
   if (e.key === "Enter" || e.key === " ") {
     if (answered) { e.preventDefault(); next(); }

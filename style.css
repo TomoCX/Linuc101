@@ -266,6 +266,73 @@ main {
 .cat-table th:first-child, .cat-table td:first-child { text-align: left; }
 .cat-table tbody tr:last-child td { border-bottom: none; font-weight: 600; }
 /* ==================================================================
+   用語のクリック説明
+================================================================== */
+.gloss {
+  cursor: help;
+  color: var(--accent);
+  text-decoration: underline dotted var(--accent);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 4px;
+  border-radius: 3px;
+}
+.gloss:hover, .gloss:focus {
+  outline: none;
+  text-decoration-style: solid;
+  background: rgba(77, 163, 255, .16);
+}
+
+.gloss-pop {
+  position: fixed;
+  z-index: 60;
+  width: 360px;
+  max-width: calc(100vw - 24px);
+  padding: 14px 16px 15px;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .5);
+  animation: fadein .14s ease;
+}
+.gloss-term {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 8px;
+  padding-right: 26px;
+  font-family: Consolas, "Segoe UI", "Yu Gothic UI", sans-serif;
+  word-break: break-word;
+}
+.gloss-def { font-size: 13.5px; line-height: 1.85; color: var(--text); }
+.gloss-close {
+  position: absolute;
+  top: 6px; right: 10px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.gloss-close:hover { color: var(--text); }
+
+/* 画面が狭いときは下から出るシートにする */
+.gloss-pop.is-sheet {
+  left: 0 !important;
+  right: 0;
+  top: auto !important;
+  bottom: 0;
+  width: 100%;
+  max-width: none;
+  border-radius: 14px 14px 0 0;
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+  padding-bottom: calc(18px + env(safe-area-inset-bottom));
+}
+
+/* ==================================================================
    単語帳
 ================================================================== */
 .card-select {

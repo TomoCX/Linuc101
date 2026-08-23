@@ -194,6 +194,7 @@ function renderLifetime() {
 function renderHome() {
   renderSessionCard();
   renderLifetime();
+  renderHomeRecommend();
   updateCountHint();
   setRelatedCommands(null);
   show("home");
@@ -505,6 +506,8 @@ function renderResult() {
   $("btnRetryWrong").disabled = wrongIds.length === 0;
   $("btnRetryWrong").textContent =
     wrongIds.length === 0 ? "全問を自力で正解！" : "できなかった問題だけ再挑戦（" + wrongIds.length + "問）";
+
+  renderResultRecommend();
 
   const list = $("reviewList");
   list.innerHTML = "";

@@ -116,6 +116,15 @@
     </div>
   </div>
 
+  <div class="card" id="recHomeCard" hidden>
+    <div class="card-head">
+      <h2>いま復習すべき項目</h2>
+      <span class="badge badge-ghost" id="recHomeMore" hidden></span>
+    </div>
+    <p class="sync-lead">これまでの成績から、自力で正解できていない項目を優先度の高い順に並べています。学習テキストをその場で開けます。</p>
+    <div class="rec-list" id="recHome"></div>
+  </div>
+
   <div class="card note-entry">
     <div class="card-head"><h2>暗記ノート</h2></div>
     <p class="sync-lead">出題範囲を主題ごとにまとめた学習ノートです。図解つきで、解く前の確認にも復習にも使えます。</p>
@@ -405,6 +414,14 @@
     </div>
   </div>
 
+  <div class="card" id="recResultCard" hidden>
+    <div class="card-head">
+      <h2>この結果から復習するとよい項目</h2>
+      <span class="badge badge-ghost" id="recResultMore" hidden></span>
+    </div>
+    <div class="rec-list" id="recResult"></div>
+  </div>
+
   <div class="card">
     <div class="card-head"><h2>解答一覧</h2></div>
     <div class="review-list" id="reviewList"></div>
@@ -421,6 +438,7 @@
 <script src="cards.js"></script>
 <script src="cards-view.js"></script>
 <script src="glossary.js"></script>
+<script src="review-view.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

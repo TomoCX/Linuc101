@@ -328,7 +328,7 @@ const QUESTIONS = [
   {
     id: 35, cat: "1.03",
     q: "現在設定されている環境変数のみを一覧表示するコマンドとして適切なものを2つ選べ。",
-    choices: ["env", "set", "printenv", "export -p 以外の unset"],
+    choices: ["env", "set", "printenv", "unset"],
     answer: [0, 2],
     exp: "env（environment＝環境）と printenv（print environment＝環境を表示）は環境変数のみを表示する。set（設定一式）は環境変数に加えてシェル変数やシェル関数も表示する。unset（un-set＝設定解除）は変数の削除。"
   },
@@ -736,7 +736,7 @@ const QUESTIONS = [
   {
     id: 82, cat: "1.05",
     q: "GPT形式のパーティションを操作できるコマンドの組み合わせとして適切なものはどれか。",
-    choices: ["fdisk（古い版）とcfdiskのみ", "gdisk と parted", "mkfs と fsck", "tune2fs と dumpe2fs"],
+    choices: ["fdisk と cfdisk のみ", "gdisk と parted", "mkfs と fsck", "tune2fs と dumpe2fs"],
     answer: [1],
     exp: "gdisk（GPT fdisk）はGPT専用の対話型パーティション管理ツール、parted（partition editor＝パーティション編集）はMBR/GPT双方に対応する。近年の fdisk はGPTにも対応しているが、伝統的にはMBR用とされる。mkfs（make filesystem）はファイルシステム作成、tune2fs はext系の設定変更。"
   },
@@ -835,7 +835,7 @@ const QUESTIONS = [
   {
     id: 94, cat: "1.05",
     q: "XFSファイルシステムの情報を表示するコマンドはどれか。",
-    choices: ["xfs_info", "dumpe2fs", "tune2fs", "xfs_growfs -n のみ"],
+    choices: ["xfs_info", "dumpe2fs", "tune2fs", "e2fsck"],
     answer: [0],
     exp: "XFSは xfs_info（info＝情報）で情報表示、xfs_repair（repair＝修復）で修復、xfs_admin（admin＝管理）で設定変更、xfs_growfs（grow＝広げる）で拡張を行う。ext系の dumpe2fs / tune2fs / e2fsck はXFSには使えない。"
   },

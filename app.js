@@ -39,7 +39,7 @@ function save(key, val) {
 
 let session = load(SESSION_KEY, null);
 let stats   = load(STATS_KEY, {});          // { qid: {c:正解数, w:不正解数, a:参照正解数} }
-let config  = load(CONFIG_KEY, { count: 20, cats: Object.keys(CATEGORIES), order: "random", weak: false, keepHelp: true });
+let config  = load(CONFIG_KEY, { count: 20, cats: Object.keys(CATEGORIES), order: "random", weak: false, keepHelp: true, imp: 0 });
 
 let learned = load(LEARNED_KEY, {});        // { "主題/見出し": true } 覚えたノートの節
 let cardsLearned = load(CARDS_KEY, {});     // { カードID: true } 覚えた単語帳のカード
@@ -113,17 +113,23 @@ function buildCatList() {
 }
 
 function pool() {
-  return QUESTIONS.filter(q => config.cats.includes(q.cat));
+  const min = config.imp || 0;
+  return QUESTIONS.filter(q => config.cats.includes(q.cat) && (q.imp || 2) >= min);
 }
+
+// 重要度の表示（3=必出／2=重要／1=補足）
+function impStars(n) { return "★★★".slice(0, n) + "☆☆☆".slice(0, 3 - n); }
+function impLabel(n) { return n === 3 ? "必出" : n === 2 ? "重要" : "補足"; }
 
 function updateCountHint() {
   const n = pool().length;
   const want = config.count === "all" ? n : Math.min(config.count, n);
+  const impNote = config.imp ? "（重要度 " + impStars(config.imp) + " 以上）" : "";
   $("countHint").textContent =
-    n === 0 ? "選択中のカテゴリに問題がありません。"
-            : "選択中のカテゴリ: 全 " + n + " 問 → 今回の出題数: " + want + " 問";
+    n === 0 ? "条件に合う問題がありません。"
+            : "選択中の範囲" + impNote + ": 全 " + n + " 問 → 今回の出題数: " + want + " 問";
   $("startWarn").hidden = n > 0;
-  if (n === 0) $("startWarn").textContent = "カテゴリを1つ以上選択してください。";
+  if (n === 0) $("startWarn").textContent = "カテゴリを1つ以上選び、重要度の条件を緩めてください。";
   $("btnStart").disabled = n === 0;
 }
 
@@ -270,6 +276,10 @@ function renderQuiz() {
   $("qTotal").textContent = session.order.length;
   $("qCat").textContent   = q.cat + " " + CATEGORIES[q.cat];
   $("qId").textContent    = "No." + q.id;
+  const imp = q.imp || 2;
+  $("qImp").textContent = impStars(imp) + " " + impLabel(imp);
+  $("qImp").className = "imp-badge imp-" + imp;
+  $("qImp").title = "重要度：" + impLabel(imp);
   $("questionText").textContent = q.q;
 
   const multi = q.answer.length > 1;
@@ -567,6 +577,16 @@ $("countChips").addEventListener("click", (e) => {
   [...$("countChips").children].forEach(c => c.classList.toggle("is-on", c === chip));
   const v = chip.dataset.count;
   config.count = v === "all" ? "all" : Number(v);
+  save(CONFIG_KEY, config);
+  updateCountHint();
+});
+
+// 重要度チップ
+$("impChips").addEventListener("click", (e) => {
+  const chip = e.target.closest(".chip");
+  if (!chip) return;
+  [...$("impChips").children].forEach(c => c.classList.toggle("is-on", c === chip));
+  config.imp = Number(chip.dataset.imp);
   save(CONFIG_KEY, config);
   updateCountHint();
 });
@@ -1050,6 +1070,8 @@ function applyConfigToForm() {
     c.classList.toggle("is-on", String(config.count) === c.dataset.count));
   [...$("orderChips").children].forEach(c =>
     c.classList.toggle("is-on", config.order === c.dataset.order));
+  [...$("impChips").children].forEach(c =>
+    c.classList.toggle("is-on", String(config.imp || 0) === c.dataset.imp));
   $("optWeak").checked = !!config.weak;
   $("optKeepHelp").checked = config.keepHelp !== false;
 }

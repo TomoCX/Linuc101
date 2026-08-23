@@ -3,7 +3,7 @@
    -----------------------------------------------------------------------
    ・結果画面 … 直前のセッションで落とした項目
    ・ホーム   … 累計成績で自力正解できていない項目
-   それぞれの学習テキスト（ノート本文）をその場で開けるようにする。
+   どちらも「その節の全問題数」を分母にして習得状況を示す。
    ======================================================================= */
 
 function recSecTitle(key) { const i = key.indexOf("/"); return i < 0 ? key : key.slice(i + 1); }
@@ -16,24 +16,46 @@ const NOTE_BY_KEY = new Map();
   for (const s of NOTE_SECTIONS) NOTE_BY_KEY.set(s.theme + "/" + s.title, s);
 })();
 
-/* ---------------- 集計 ---------------- */
-
-// 累計成績から節ごとに集計する
-function recAggFromStats() {
-  const m = new Map();
+// 節キー → その節の問題ID一覧
+const QIDS_BY_SEC = new Map();
+(function () {
   for (const q of QUESTIONS) {
     if (!q.sec) continue;
-    const st = stats[q.id];
-    if (!st) continue;
-    const a = m.get(q.sec) || { c: 0, w: 0, a: 0, skip: 0 };
-    a.c += st.c; a.w += st.w; a.a += (st.a || 0);
-    m.set(q.sec, a);
+    if (!QIDS_BY_SEC.has(q.sec)) QIDS_BY_SEC.set(q.sec, []);
+    QIDS_BY_SEC.get(q.sec).push(q.id);
   }
-  return m;
+})();
+
+/* ---------------- 集計 ---------------- */
+
+/*
+   累計成績から、節ごとの習得状況を出す。
+   分母はその節の全問題数。1問ずつ次のどれかに分類する。
+     mastered  … 一度でも自力で正解した
+     stumbled  … 解いたが自力正解はまだ（不正解・参照つき正解のみ）
+     untouched … まだ一度も解いていない
+*/
+function recMasteryByStats() {
+  const out = [];
+  QIDS_BY_SEC.forEach((ids, key) => {
+    let mastered = 0, stumbled = 0, untouched = 0;
+    for (const id of ids) {
+      const st = stats[id];
+      if (!st || (st.c + st.w + (st.a || 0)) === 0) { untouched++; continue; }
+      if (st.c > 0) mastered++; else stumbled++;
+    }
+    out.push({
+      key: key, title: recSecTitle(key), theme: recSecTheme(key),
+      total: ids.length, mastered: mastered, stumbled: stumbled, untouched: untouched,
+      answered: mastered + stumbled,
+      rate: ids.length ? Math.round((mastered / ids.length) * 100) : 0
+    });
+  });
+  return out;
 }
 
-// 直前のセッションから節ごとに集計する
-function recAggFromSession(s) {
+// 直前のセッションで、その節をどれだけ落としたか
+function recMissBySession(s) {
   const m = new Map();
   if (!s) return m;
   s.order.forEach((id, i) => {
@@ -50,42 +72,22 @@ function recAggFromSession(s) {
   return m;
 }
 
-// 弱い順に並べる（自力で正解できなかった問題があるものだけ）
-function recWeakList(m, limit) {
-  const out = [];
-  m.forEach((a, key) => {
-    const miss = a.w + a.a + a.skip;
-    if (!miss) return;
-    const total = a.c + miss;
-    out.push({
-      key: key,
-      title: recSecTitle(key),
-      theme: recSecTheme(key),
-      correct: a.c, wrong: a.w, assist: a.a, skip: a.skip,
-      total: total,
-      miss: miss,
-      rate: total ? Math.round((a.c / total) * 100) : 0
-    });
-  });
-  out.sort((x, y) => (x.rate - y.rate) || (y.miss - x.miss));
-  return limit ? out.slice(0, limit) : out;
-}
-
 /* ---------------- 表示 ---------------- */
 
 function recRateClass(r) { return r >= 80 ? "rate-good" : r >= 50 ? "rate-mid" : "rate-bad"; }
 
+/*
+   item に必要なもの
+     key / title / theme / rate / total（節の全問題数）
+     sub   … 内訳の文
+     badge … 率のとなりに出す補足（省略可）
+*/
 function recBuildItem(item) {
   const el = document.createElement("div");
   el.className = "rec-item";
   el.dataset.key = item.key;
 
-  const parts = [];
-  if (item.wrong)  parts.push("不正解 " + item.wrong);
-  if (item.assist) parts.push("参照 " + item.assist);
-  if (item.skip)   parts.push("未回答 " + item.skip);
-
-  const nQ = QUESTIONS.filter(q => q.sec === item.key).length;
+  const nQ = (QIDS_BY_SEC.get(item.key) || []).length;
   const nC = (typeof CARDS !== "undefined") ? CARDS.filter(c => c.sec === item.key).length : 0;
   const sec = NOTE_BY_KEY.get(item.key);
 
@@ -95,8 +97,17 @@ function recBuildItem(item) {
       '<span class="rec-title">' + noteEsc(item.title) + "</span>" +
       '<span class="rec-rate ' + recRateClass(item.rate) + '">' + item.rate + "%</span>" +
     "</div>" +
-    '<div class="rec-sub">' + item.total + "問中 " + item.correct + "問を自力で正解" +
-      (parts.length ? "（" + parts.join(" ・ ") + "）" : "") + "</div>";
+    '<div class="rec-sub">' + item.sub + "</div>";
+
+  // 習得状況のバー（自力正解／つまずき／未着手）
+  if (item.bar) {
+    html +=
+      '<div class="rec-bar" title="自力正解 ' + item.mastered + ' ・ つまずき ' + item.stumbled + ' ・ 未着手 ' + item.untouched + '">' +
+        '<span class="seg seg-correct" style="width:' + (item.mastered / item.total * 100) + '%"></span>' +
+        '<span class="seg seg-wrong" style="width:' + (item.stumbled / item.total * 100) + '%"></span>' +
+        '<span class="seg seg-skip" style="width:' + (item.untouched / item.total * 100) + '%"></span>' +
+      "</div>";
+  }
 
   if (sec) {
     const fig = NOTE_FIGURES[sec.title] ? '<div class="note-fig">' + NOTE_FIGURES[sec.title] + "</div>" : "";
@@ -121,12 +132,18 @@ function recRender(boxId, items, emptyText) {
   const box = document.getElementById(boxId);
   if (!box) return;
   box.innerHTML = "";
-
   if (!items.length) {
     box.innerHTML = '<div class="rec-empty">' + emptyText + "</div>";
     return;
   }
   for (const item of items) box.appendChild(recBuildItem(item));
+}
+
+function recSetMore(id, hidden, n) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.hidden = hidden;
+  el.textContent = "ほかに " + n + " 項目";
 }
 
 // ボタンはまとめて処理する
@@ -150,37 +167,62 @@ function recBindActions(boxId) {
 
 /* ---------------- 呼び出し口 ---------------- */
 
-// 結果画面：直前のセッションで落とした項目
+// 結果画面：この回で落とした項目（累計の習得状況もあわせて出す）
 function renderResultRecommend() {
-  const card = document.getElementById("recResultCard");
-  const items = recWeakList(recAggFromSession(session));
-  card.hidden = false;
-  recRender("recResult", items.slice(0, 6),
-    "この回で落とした項目はありません。よくできています。");
+  document.getElementById("recResultCard").hidden = false;
 
-  const more = document.getElementById("recResultMore");
-  if (more) {
-    more.hidden = items.length <= 6;
-    more.textContent = "ほかに " + Math.max(0, items.length - 6) + " 項目";
-  }
+  const miss = recMissBySession(session);
+  const mastery = new Map(recMasteryByStats().map(x => [x.key, x]));
+  const items = [];
+
+  miss.forEach((a, key) => {
+    const lost = a.w + a.a + a.skip;
+    if (!lost) return;
+    const m = mastery.get(key);
+    if (!m) return;
+
+    const parts = [];
+    if (a.w) parts.push("不正解 " + a.w);
+    if (a.a) parts.push("参照 " + a.a);
+    if (a.skip) parts.push("未回答 " + a.skip);
+
+    items.push(Object.assign({}, m, {
+      lost: lost,
+      bar: true,
+      sub: "この回で " + lost + "問 落とした（" + parts.join(" ・ ") + "）<br>" +
+           "この項目は全 " + m.total + "問 ── 自力正解 <b>" + m.mastered + "問</b> ・ " +
+           "つまずき " + m.stumbled + "問 ・ 未着手 " + m.untouched + "問"
+    }));
+  });
+
+  // 落とした数が多い順、次に習得率の低い順
+  items.sort((x, y) => (y.lost - x.lost) || (x.rate - y.rate));
+
+  recRender("recResult", items.slice(0, 6), "この回で落とした項目はありません。よくできています。");
+  recSetMore("recResultMore", items.length <= 6, Math.max(0, items.length - 6));
 }
 
-// ホーム：累計成績から
+// ホーム：累計成績から見た習得状況
 function renderHomeRecommend() {
   const card = document.getElementById("recHomeCard");
-  const all = recWeakList(recAggFromStats());
-  const answered = Object.keys(stats).length;
+  const all = recMasteryByStats().filter(x => x.answered > 0);   // 一度は解いた節だけ
 
-  if (!answered) { card.hidden = true; return; }
+  if (!all.length) { card.hidden = true; return; }
   card.hidden = false;
-  recRender("recHome", all.slice(0, 5),
-    "自力で正解できていない項目はありません。範囲を広げて解いてみましょう。");
 
-  const more = document.getElementById("recHomeMore");
-  if (more) {
-    more.hidden = all.length <= 5;
-    more.textContent = "ほかに " + Math.max(0, all.length - 5) + " 項目";
-  }
+  // まだ自力正解できていない問題が残っている節を、習得率の低い順に
+  const items = all
+    .filter(x => x.mastered < x.total)
+    .sort((x, y) => (x.rate - y.rate) || (y.stumbled - x.stumbled))
+    .map(x => Object.assign({}, x, {
+      bar: true,
+      sub: "全 " + x.total + "問中 <b>" + x.mastered + "問</b> を自力で正解" +
+           "（つまずき " + x.stumbled + "問 ・ 未着手 " + x.untouched + "問）"
+    }));
+
+  recRender("recHome", items.slice(0, 5),
+    "解いた項目はすべて自力で正解できています。範囲を広げてみましょう。");
+  recSetMore("recHomeMore", items.length <= 5, Math.max(0, items.length - 5));
 }
 
 recBindActions("recResult");

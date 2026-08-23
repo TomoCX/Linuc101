@@ -1374,3 +1374,15 @@ body.help-open #helpTab { display: none; }
   .rec-rate { margin-left: 0; }
   .rec-acts .btn { flex: 1 1 auto; }
 }
+
+.rec-sub b { color: var(--correct); font-size: 15px; }
+.rec-bar {
+  display: flex;
+  height: 7px;
+  margin-top: 9px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #0d1220;
+  border: 1px solid var(--line);
+}
+.rec-bar .seg { display: block; }

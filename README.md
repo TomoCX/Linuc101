@@ -313,7 +313,10 @@ powershell -ExecutionPolicy Bypass -File build-notes.ps1
 |---|---|
 | `index.html` | 画面の構造 |
 | `style.css` | 見た目 |
-| `app.js` | 出題・判定・採点・保存・ヘルプパネルのロジック |
+| `core.js` | 共通の土台（保存領域・状態・小さな道具・画面切り替え） |
+| `app.js` | ホーム・出題・結果の画面 |
+| `help-view.js` | コマンドオプション早見表のパネル |
+| `sync-view.js` | 進捗の同期・バックアップ（ファイル／同期コード／Gist） |
 | `questions.js` | 問題データ（96問） |
 | `questions-sec.js` | ノートの節と問題の対応づけ＋節ごとの追加問題（44問） |
 | `commands.js` | コマンドオプション早見表のデータ（44項目） |
@@ -340,3 +343,23 @@ powershell -ExecutionPolicy Bypass -File build-notes.ps1
 | | **合計** | **143** |
 
 このうち136問がノートの節に紐づいており、ノートから範囲を絞って演習できます。
+
+## ファイルの構成（開発者向け）
+
+読み込み順は `index.html` の末尾のとおりです。
+
+```
+core.js            土台：保存キー・状態・共通の道具（esc / shuffle / secTitle / show など）
+  ↓
+データ             questions.js / questions-sec.js / commands.js / notes.js / cards.js
+  ↓
+各画面             notes-view.js / cards-view.js / glossary.js / review-view.js
+                   help-view.js / sync-view.js
+  ↓
+app.js             ホーム・出題・結果（最後に読み込み、末尾で初期化する）
+```
+
+- 状態（`session` `stats` `learned` `cardsLearned` `config` など）と保存処理は **core.js に一本化**しています。
+- `save()` は進捗に関わるキーなら変更時刻を記録し、`onProgressSaved`（sync-view.js が設定）を呼びます。自動同期はこのフック経由なので、core.js は同期の実装を知りません。
+- 文字列のエスケープは `esc()`、節キーの分解は `secTheme()` / `secTitle()`、チップ列は `bindChips()` / `selectChip()` に統一しています。
+- `build-single-file.ps1` は `index.html` が読み込むファイルを順に埋め込み、**取り込み漏れがあればエラーで止まります**。新しいJSを足したら、この一覧にも追加してください。

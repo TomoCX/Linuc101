@@ -14,19 +14,8 @@ let cardIdx    = 0;         // 表示中のカード位置
 let cardShown  = false;     // 意味を表示しているか
 let cardsBuilt = false;
 
-function cardEsc(s) {
-  return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-}
 
 // セクションの見出しだけを取り出す（"1.02/アクセス権（パーミッション）" → "アクセス権（パーミッション）"）
-function cardSecTitle(key) {
-  const i = key.indexOf("/");
-  return i < 0 ? key : key.slice(i + 1);
-}
-function cardSecTheme(key) {
-  const i = key.indexOf("/");
-  return i < 0 ? "00" : key.slice(0, i);
-}
 
 function buildCardSelect() {
   const sel = document.getElementById("cardSec");
@@ -39,7 +28,7 @@ function buildCardSelect() {
 
   // 主題ごとにまとめて並べる
   const themes = [];
-  CARDS.forEach(c => { const t = cardSecTheme(c.sec); if (!themes.includes(t)) themes.push(t); });
+  CARDS.forEach(c => { const t = secTheme(c.sec); if (!themes.includes(t)) themes.push(t); });
   themes.sort();
 
   for (const t of themes) {
@@ -47,19 +36,19 @@ function buildCardSelect() {
     group.label = (t === "00" ? "直前チェック・全体" : "主題 " + t);
 
     // 主題まるごと
-    const nAll = CARDS.filter(c => cardSecTheme(c.sec) === t).length;
+    const nAll = CARDS.filter(c => secTheme(c.sec) === t).length;
     const oAll = document.createElement("option");
     oAll.value = t + "/*";
     oAll.textContent = "── この主題すべて（" + nAll + "枚）";
     group.appendChild(oAll);
 
     const keys = [];
-    CARDS.forEach(c => { if (cardSecTheme(c.sec) === t && !keys.includes(c.sec)) keys.push(c.sec); });
+    CARDS.forEach(c => { if (secTheme(c.sec) === t && !keys.includes(c.sec)) keys.push(c.sec); });
     for (const k of keys) {
       const n = CARDS.filter(c => c.sec === k).length;
       const o = document.createElement("option");
       o.value = k;
-      o.textContent = cardSecTitle(k) + "（" + n + "枚）";
+      o.textContent = secTitle(k) + "（" + n + "枚）";
       group.appendChild(o);
     }
     sel.appendChild(group);
@@ -70,7 +59,7 @@ function buildCardSelect() {
 // 選択中の範囲にそのカードが含まれるか（"1.02/*" のように主題まとめも指定できる）
 function cardMatch(c) {
   if (!cardSec) return true;
-  if (cardSec.endsWith("/*")) return cardSecTheme(c.sec) === cardSec.slice(0, -2);
+  if (cardSec.endsWith("/*")) return secTheme(c.sec) === cardSec.slice(0, -2);
   return c.sec === cardSec;
 }
 
@@ -107,7 +96,7 @@ function renderCard() {
   if (cardMode === "list") { renderCardList(); return; }
 
   const c = cardDeck[cardIdx];
-  document.getElementById("fcSec").textContent = cardSecTitle(c.sec);
+  document.getElementById("fcSec").textContent = secTitle(c.sec);
   document.getElementById("fcTerm").textContent = c.term;
   document.getElementById("fcMean").textContent = c.mean;
   document.getElementById("fcMean").hidden = !cardShown;
@@ -129,7 +118,7 @@ function renderCardList() {
     if (c.sec !== lastSec && cardOrder !== "shuffle") {
       const h = document.createElement("div");
       h.className = "help-section";
-      h.textContent = cardSecTitle(c.sec);
+      h.textContent = secTitle(c.sec);
       box.appendChild(h);
       lastSec = c.sec;
     }
@@ -139,8 +128,8 @@ function renderCardList() {
       '<label class="learn-check card-row-check"><input type="checkbox" class="card-box" data-id="' + c.id + '"' +
         (cardsLearned[c.id] ? " checked" : "") + '><span>覚えた</span></label>' +
       '<div class="card-row-body">' +
-        '<div class="card-row-term">' + cardEsc(c.term) + "</div>" +
-        '<div class="card-row-mean">' + cardEsc(c.mean) + "</div>" +
+        '<div class="card-row-term">' + esc(c.term) + "</div>" +
+        '<div class="card-row-mean">' + esc(c.mean) + "</div>" +
       "</div>";
     box.appendChild(row);
   });
@@ -278,9 +267,9 @@ function renderCardJump() {
 
   mk("全部シャッフル（" + CARDS.length + "枚）", null, true);
   const themes = [];
-  CARDS.forEach(c => { const t = cardSecTheme(c.sec); if (!themes.includes(t)) themes.push(t); });
+  CARDS.forEach(c => { const t = secTheme(c.sec); if (!themes.includes(t)) themes.push(t); });
   themes.sort().forEach(t => {
-    const n = CARDS.filter(c => cardSecTheme(c.sec) === t).length;
+    const n = CARDS.filter(c => secTheme(c.sec) === t).length;
     mk((t === "00" ? "直前チェック" : t) + "（" + n + "枚）", t + "/*", false);
   });
 }

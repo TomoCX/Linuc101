@@ -257,15 +257,12 @@ const NOTE_FIGURES = {
 };
 
 /* ---------------- Markdown → HTML ---------------- */
-function noteEsc(s) {
-  return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-}
 
 function mdInline(text) {
   // コード部分をいったん退避してから装飾を処理する
   // （**`-P` と同じ** のように太字がコードをまたぐ場合に対応するため）
   const codes = [];
-  let s = noteEsc(text).replace(/`([^`]+)`/g, (m, p1) => {
+  let s = esc(text).replace(/`([^`]+)`/g, (m, p1) => {
     codes.push(p1);
     return "\u0001" + (codes.length - 1) + "\u0001";
   });
@@ -295,7 +292,7 @@ function mdToHtml(lines) {
       i++;
       while (i < lines.length && !/^```/.test(lines[i])) { buf.push(lines[i]); i++; }
       i++;
-      html += "<pre><code>" + noteEsc(buf.join("\n")) + "</code></pre>";
+      html += "<pre><code>" + esc(buf.join("\n")) + "</code></pre>";
       continue;
     }
 
@@ -453,10 +450,10 @@ function buildNotes() {
     const fig = NOTE_FIGURES[sec.title] ? '<div class="note-fig">' + NOTE_FIGURES[sec.title] + "</div>" : "";
     art.innerHTML =
       '<div class="note-sec-head">' +
-        "<h3>" + noteEsc(sec.title) + "</h3>" +
+        "<h3>" + esc(sec.title) + "</h3>" +
         '<div class="note-sec-act">' +
-          (n ? '<button class="btn btn-mini note-quiz" data-key="' + noteEsc(key) + '">問題を解く（' + n + '問）</button>' : "") +
-          '<label class="learn-check"><input type="checkbox" class="learn-box" data-key="' + noteEsc(key) + '"><span>覚えた</span></label>' +
+          (n ? '<button class="btn btn-mini note-quiz" data-key="' + esc(key) + '">問題を解く（' + n + '問）</button>' : "") +
+          '<label class="learn-check"><input type="checkbox" class="learn-box" data-key="' + esc(key) + '"><span>覚えた</span></label>' +
         "</div>" +
       "</div>" +
       fig + mdToHtml(sec.lines);

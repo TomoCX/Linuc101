@@ -148,10 +148,10 @@ function glossKeyFromTerm(term) {
   // 長い語から順に照合する（「シンボリックリンク」が「リンク」に食われないように）
   const keys = [...glossMap.keys()].sort((a, b) => b.length - a.length);
   const pattern = keys.map(k => {
-    const esc = k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const escaped = k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const head = /^[A-Za-z0-9_]/.test(k) ? "\\b" : "";
     const tail = /[A-Za-z0-9_]$/.test(k) ? "\\b" : "";
-    return head + esc + tail;
+    return head + escaped + tail;
   }).join("|");
   glossRe = new RegExp("(" + pattern + ")", "g");
 })();
@@ -159,17 +159,14 @@ function glossKeyFromTerm(term) {
 /* ==================================================================
    解説文に用語リンクを埋め込む
 ================================================================== */
-function glossEsc(s) {
-  return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-}
 
 // 同じ語は最初の1か所だけリンクにする（読みづらくならないように）
 function glossHtml(text) {
   const used = new Set();
-  return glossEsc(text).replace(glossRe, (m) => {
+  return esc(text).replace(glossRe, (m) => {
     if (used.has(m)) return m;
     used.add(m);
-    return '<span class="gloss" role="button" tabindex="0" data-k="' + glossEsc(m) + '">' + m + "</span>";
+    return '<span class="gloss" role="button" tabindex="0" data-k="' + esc(m) + '">' + m + "</span>";
   });
 }
 

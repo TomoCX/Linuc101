@@ -6,8 +6,6 @@
    どちらも「その節の全問題数」を分母にして習得状況を示す。
    ======================================================================= */
 
-function recSecTitle(key) { const i = key.indexOf("/"); return i < 0 ? key : key.slice(i + 1); }
-function recSecTheme(key) { const i = key.indexOf("/"); return i < 0 ? "00" : key.slice(0, i); }
 
 // 節キー → ノート本文
 const NOTE_BY_KEY = new Map();
@@ -45,7 +43,7 @@ function recMasteryByStats() {
       if (st.c > 0) mastered++; else stumbled++;
     }
     out.push({
-      key: key, title: recSecTitle(key), theme: recSecTheme(key),
+      key: key, title: secTitle(key), theme: secTheme(key),
       total: ids.length, mastered: mastered, stumbled: stumbled, untouched: untouched,
       answered: mastered + stumbled,
       rate: ids.length ? Math.round((mastered / ids.length) * 100) : 0
@@ -74,7 +72,6 @@ function recMissBySession(s) {
 
 /* ---------------- 表示 ---------------- */
 
-function recRateClass(r) { return r >= 80 ? "rate-good" : r >= 50 ? "rate-mid" : "rate-bad"; }
 
 /*
    item に必要なもの
@@ -93,9 +90,9 @@ function recBuildItem(item) {
 
   let html =
     '<div class="rec-head">' +
-      '<span class="rec-theme">' + recSecTheme(item.key) + "</span>" +
-      '<span class="rec-title">' + noteEsc(item.title) + "</span>" +
-      '<span class="rec-rate ' + recRateClass(item.rate) + '">' + item.rate + "%</span>" +
+      '<span class="rec-theme">' + secTheme(item.key) + "</span>" +
+      '<span class="rec-title">' + esc(item.title) + "</span>" +
+      '<span class="rec-rate ' + rateClass(item.rate, 50) + '">' + item.rate + "%</span>" +
     "</div>" +
     '<div class="rec-sub">' + item.sub + "</div>";
 

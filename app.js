@@ -552,6 +552,10 @@ $("btnDiscard").addEventListener("click", () => {
   renderHome();
 });
 
+$("btnRelock").addEventListener("click", () => {
+  if (confirm("この端末のロックを戻します。次に開くときパスワードの入力が必要になります。よろしいですか？（進捗は消えません）")) authRelock();
+});
+
 $("btnResetStats").addEventListener("click", () => {
   if (!confirm("累計の成績をすべて消去します。よろしいですか？")) return;
   stats = {};

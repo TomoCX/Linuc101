@@ -1488,3 +1488,44 @@ body.locked > #lockScreen {
   text-align: center;
   line-height: 2;
 }
+
+/* ==================================================================
+   暗記ノートの重要マーク
+================================================================== */
+.note-star {
+  display: inline-block;
+  margin-right: 8px;
+  font-size: 12px;
+  letter-spacing: .06em;
+  vertical-align: 1px;
+}
+.note-star.star-3 { color: var(--warn); }
+.note-star.star-2 { color: var(--muted); }
+.note-star.star-1 { color: var(--line); }
+
+/* 最重要の節は枠を強調する */
+.note-sec[data-stars="3"] { border-color: rgba(240, 180, 41, .4); }
+.note-sec[data-stars="3"] > .note-sec-head { border-bottom-color: rgba(240, 180, 41, .3); }
+
+/* 本文中の重要語 */
+mark.kp, code.kp {
+  background: rgba(240, 180, 41, .16);
+  color: inherit;
+  border-radius: 4px;
+  padding: 1px 4px;
+  box-shadow: inset 0 -2px 0 rgba(240, 180, 41, .5);
+}
+code.kp { color: var(--warn); border-color: rgba(240, 180, 41, .45); }
+mark.kp::before, code.kp::before {
+  content: "★";
+  color: var(--warn);
+  font-size: 10px;
+  margin-right: 3px;
+  vertical-align: 1px;
+}
+
+.note-toggles { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+
+@media (max-width: 560px) {
+  .note-toggles { flex-direction: column; gap: 4px; }
+}

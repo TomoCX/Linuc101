@@ -264,18 +264,48 @@ function mdInline(text) {
   const codes = [];
   let s = esc(text).replace(/`([^`]+)`/g, (m, p1) => {
     codes.push(p1);
-    return "\u0001" + (codes.length - 1) + "\u0001";
+    return "@@CODE" + (codes.length - 1) + "@@";
   });
 
   s = s
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
 
-  return s.replace(/\u0001(\d+)\u0001/g, (m, i) => "<code>" + codes[i] + "</code>");
+  s = markKeyPoints(s);
+
+  // コードは、まるごと重要語なら印を付けて戻す
+  return s.replace(/@@CODE([0-9]+)@@/g, (m, i) => {
+    const body = codes[i];
+    const kp = showKeyPoints && KEY_POINT_SET.has(body);
+    return "<code" + (kp ? ' class="kp"' : "") + ">" + body + "</code>";
+  });
 }
 
+// 重要語を拾うための正規表現（長い語から順に並べてある）
+// バックスラッシュを直接書かずに組み立てる
+function reEscape(str) {
+  const bs = String.fromCharCode(92);
+  let out = "";
+  for (const ch of str) out += ("^$.*+?()[]{}|/".indexOf(ch) >= 0 ? bs + ch : ch);
+  return out;
+}
+const KEY_POINT_RE = new RegExp("(" + KEY_POINTS.map(reEscape).join("|") + ")", "g");
+
+// 重要語に印を付ける（タグの中身には触れない）
+function markKeyPoints(html) {
+  if (!showKeyPoints) return html;
+  return html.split(/(<[^>]*>)/).map(part =>
+    part.startsWith("<") ? part
+      : part.replace(KEY_POINT_RE, m => '<mark class="kp">' + m + "</mark>")
+  ).join("");
+}
+
+// 表の1行をセルに分ける（前後の | を落として分割する）
 function mdCells(line) {
-  return line.replace(/^\||\|$/g, "").split("|").map(c => c.trim());
+  let s = line.trim();
+  if (s.startsWith("|")) s = s.slice(1);
+  if (s.endsWith("|")) s = s.slice(0, -1);
+  return s.split("|").map(c => c.trim());
 }
 
 // 行の配列を HTML に変換する
@@ -407,6 +437,8 @@ function parseNotes(md) {
 const NOTE_SECTIONS = parseNotes(typeof NOTES_MD === "string" ? NOTES_MD : "");
 let noteTheme = null;          // 絞り込み中の主題（null = すべて）
 let onlyUnlearned = false;     // 覚えていない項目だけ表示するか
+let showKeyPoints  = true;     // 重要語に印を付けるか
+let onlyTopStars   = false;    // ★★★の節だけ表示するか
 let notesBuilt = false;
 
 function noteThemeLabel(t) {
@@ -415,6 +447,9 @@ function noteThemeLabel(t) {
 
 // 節のキー（"主題/見出し"）。問題データの sec と対応する
 function noteKey(sec) { return sec.theme + "/" + sec.title; }
+
+// 節の重要度（3=最重要 / 2=重要 / 1=補足）
+function noteStars(key) { return NOTE_STARS[key] || 2; }
 
 // その節に紐づく問題の数
 function sectionQuestionCount(key) {
@@ -446,11 +481,14 @@ function buildNotes() {
     art.dataset.theme = sec.theme;
     art.dataset.title = sec.title;
     art.dataset.key = key;
+    const stars = noteStars(key);
+    art.dataset.stars = stars;
 
     const fig = NOTE_FIGURES[sec.title] ? '<div class="note-fig">' + NOTE_FIGURES[sec.title] + "</div>" : "";
     art.innerHTML =
       '<div class="note-sec-head">' +
-        "<h3>" + esc(sec.title) + "</h3>" +
+        '<h3><span class="note-star star-' + stars + '" title="重要度">' +
+          "★★★".slice(0, stars) + "</span>" + esc(sec.title) + "</h3>" +
         '<div class="note-sec-act">' +
           (n ? '<button class="btn btn-mini note-quiz" data-key="' + esc(key) + '">問題を解く（' + n + '問）</button>' : "") +
           '<label class="learn-check"><input type="checkbox" class="learn-box" data-key="' + esc(key) + '"><span>覚えた</span></label>' +
@@ -460,22 +498,6 @@ function buildNotes() {
     body.appendChild(art);
   });
 
-  // チェックボックスと出題ボタン（イベントは委譲でまとめて処理）
-  body.addEventListener("change", (e) => {
-    const box = e.target.closest(".learn-box");
-    if (!box) return;
-    const key = box.dataset.key;
-    if (box.checked) learned[key] = true; else delete learned[key];
-    save(LEARNED_KEY, learned);
-    box.closest(".note-sec").classList.toggle("is-learned", box.checked);
-    updateLearnProgress();
-    buildNoteToc();          // 目次の ✓ 表示も更新する
-  });
-  body.addEventListener("click", (e) => {
-    const btn = e.target.closest(".note-quiz");
-    if (!btn) return;
-    startSectionQuiz(btn.dataset.key);
-  });
 
   refreshLearnedUI();
   buildNoteToc();
@@ -520,6 +542,7 @@ function buildNoteToc() {
   NOTE_SECTIONS.forEach((sec, idx) => {
     if (noteTheme && sec.theme !== noteTheme) return;
     if (onlyUnlearned && learned[noteKey(sec)]) return;
+    if (onlyTopStars && noteStars(noteKey(sec)) !== 3) return;
     if (sec.theme !== lastTheme) {
       const h = document.createElement("div");
       h.className = "toc-theme";
@@ -529,7 +552,9 @@ function buildNoteToc() {
     }
     const a = document.createElement("button");
     a.className = "toc-link" + (learned[noteKey(sec)] ? " is-learned" : "");
-    a.textContent = (learned[noteKey(sec)] ? "✓ " : "") + sec.title;
+    a.innerHTML = (learned[noteKey(sec)] ? "✓ " : "") +
+      '<span class="note-star star-' + noteStars(noteKey(sec)) + '">' +
+      "★★★".slice(0, noteStars(noteKey(sec))) + "</span>" + esc(sec.title);
     a.addEventListener("click", () => {
       document.getElementById("noteToc").open = false;
       const el = document.getElementById("note-sec-" + idx);
@@ -547,7 +572,8 @@ function filterNotes() {
     const themeOk = !noteTheme || el.dataset.theme === noteTheme;
     const textOk = !q || el.textContent.toLowerCase().includes(q);
     const learnOk = !onlyUnlearned || !learned[el.dataset.key];
-    const show = themeOk && textOk && learnOk;
+    const starOk  = !onlyTopStars || el.dataset.stars === "3";
+    const show = themeOk && textOk && learnOk && starOk;
     el.hidden = !show;
     if (show) hit++;
   });
@@ -627,4 +653,32 @@ document.getElementById("optOnlyUnlearned").addEventListener("change", (e) => {
   buildNoteToc();
   filterNotes();
 });
+document.getElementById("optOnlyTopStars").addEventListener("change", (e) => {
+  onlyTopStars = e.target.checked;
+  buildNoteToc();
+  filterNotes();
+});
+document.getElementById("optShowKeyPoints").addEventListener("change", (e) => {
+  showKeyPoints = e.target.checked;
+  notesBuilt = false;          // 本文を作り直して印を付け直す
+  buildNotes();
+  filterNotes();
+});
 renderNoteJump();
+
+/* ノート本文のチェックボックスと出題ボタン（委譲で一度だけ登録する） */
+document.getElementById("notesBody").addEventListener("change", (e) => {
+  const box = e.target.closest(".learn-box");
+  if (!box) return;
+  const key = box.dataset.key;
+  if (box.checked) learned[key] = true; else delete learned[key];
+  save(LEARNED_KEY, learned);
+  box.closest(".note-sec").classList.toggle("is-learned", box.checked);
+  updateLearnProgress();
+  buildNoteToc();          // 目次の ✓ 表示も更新する
+});
+document.getElementById("notesBody").addEventListener("click", (e) => {
+  const btn = e.target.closest(".note-quiz");
+  if (!btn) return;
+  startSectionQuiz(btn.dataset.key);
+});

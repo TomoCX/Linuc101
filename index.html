@@ -348,10 +348,20 @@
     <div class="chip-row" id="noteThemes"></div>
     <div class="learn-bar">
       <span id="learnProgress"></span>
-      <label class="check-inline learn-filter">
-        <input type="checkbox" id="optOnlyUnlearned">
-        <span>覚えていない項目だけ表示</span>
-      </label>
+      <div class="note-toggles">
+        <label class="check-inline learn-filter">
+          <input type="checkbox" id="optOnlyUnlearned">
+          <span>覚えていない項目だけ</span>
+        </label>
+        <label class="check-inline learn-filter">
+          <input type="checkbox" id="optOnlyTopStars">
+          <span>★★★ の項目だけ</span>
+        </label>
+        <label class="check-inline learn-filter">
+          <input type="checkbox" id="optShowKeyPoints" checked>
+          <span>重要語に印を付ける</span>
+        </label>
+      </div>
     </div>
     <details class="notes-toc" id="noteToc">
       <summary>目次</summary>
@@ -472,6 +482,7 @@
 <script src="commands.js"></script>
 <script src="notes.js"></script>
 <script src="cards.js"></script>
+<script src="keypoints.js"></script>
 
 <!-- 各画面 -->
 <script src="notes-view.js"></script>

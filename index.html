@@ -217,7 +217,7 @@
     </div>
     <table class="cat-table">
       <thead>
-        <tr><th>カテゴリ</th><th>解答</th><th>正解</th><th>参照</th><th>正答率</th></tr>
+        <tr><th>カテゴリ</th><th>解答</th><th>正解</th><th>参照</th><th title="2回以上つづけて自力正解した問題">◎連続</th><th>正答率</th></tr>
       </thead>
       <tbody id="lifetimeBody"></tbody>
     </table>
@@ -381,6 +381,7 @@
       <span class="badge" id="qCat"></span>
       <span class="badge badge-ghost" id="qId"></span>
       <span class="imp-badge" id="qImp"></span>
+      <span class="rank-badge" id="qRank"></span>
     </div>
     <div class="quiz-score">
       <span class="pill pill-correct">正解 <b id="scoreCorrect">0</b></span>
@@ -438,6 +439,7 @@
       <div class="score-rate" id="resultRate">0%</div>
       <div class="score-sub" id="resultSub">0 / 0 問正解</div>
     </div>
+    <div class="result-streak" id="resultStreak" hidden></div>
     <div class="result-msg" id="resultMsg"></div>
 
     <div class="stat-grid stat-grid-5">

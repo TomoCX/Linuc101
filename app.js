@@ -92,30 +92,32 @@ function renderSessionCard() {
 function renderLifetime() {
   const body = $("lifetimeBody");
   body.innerHTML = "";
-  let tc = 0, ta = 0, tt = 0;
+  let tc = 0, ta = 0, tt = 0, tk = 0;
 
-  const row = (label, t, c, a) => {
+  const row = (label, t, c, a, k) => {
     const r = pct(c, t);
     const tr = document.createElement("tr");
     tr.innerHTML =
       "<td>" + label + "</td><td>" + t + "</td><td>" + c + "</td>" +
       '<td class="cell-assist">' + a + "</td>" +
+      '<td class="cell-rank">' + k + "</td>" +
       '<td class="' + (t ? rateClass(r) : "") + '">' + (t ? r + "%" : "-") + "</td>";
     body.appendChild(tr);
   };
 
   for (const [id, name] of Object.entries(CATEGORIES)) {
-    let c = 0, a = 0, t = 0;
+    let c = 0, a = 0, t = 0, k = 0;
     for (const q of QUESTIONS) {
       if (q.cat !== id) continue;
+      if (qRank(q.id) === 3) k++;
       const s = stats[q.id];
       if (!s) continue;
       c += s.c; a += s.a || 0; t += s.c + s.w + (s.a || 0);
     }
-    tc += c; ta += a; tt += t;
-    row('<span class="cat-id">' + id + "</span> " + name, t, c, a);
+    tc += c; ta += a; tt += t; tk += k;
+    row('<span class="cat-id">' + id + "</span> " + name, t, c, a, k);
   }
-  row("合計", tt, tc, ta);
+  row("合計", tt, tc, ta, tk);
 }
 
 function renderHome() {
@@ -152,6 +154,7 @@ function startSession(ids) {
 }
 
 function weakScore(q) {
+  if (qRank(q.id) === 3) return 0;                 // 連続正解まで届いた問題は後回し
   const s = stats[q.id];
   const n = s ? s.c + s.w + (s.a || 0) : 0;
   if (!n) return 0.5;                              // 未出題は中間の優先度
@@ -179,6 +182,16 @@ let helpUsed = false;          // この問題の解答中にコマンド表を�
 let rawOk = false;             // 選択内容そのものは正解だったか
 let curSkipped = false;        // この問題をスキップしたか
 
+// 問題ごとの到達ランクのバッジ（－未着手 / △つまずき / ○正解 / ◎連続正解）
+function updateRankBadge(qid) {
+  const rk = qRank(qid);
+  const st = qStreak(qid);
+  const el = $("qRank");
+  el.textContent = RANK_MARK[rk] + " " + RANK_LABEL[rk] + (rk === 3 ? "（" + st + "回連続）" : "");
+  el.className = "rank-badge rank-" + rk;
+  el.title = "この問題のこれまでの成績";
+}
+
 function renderQuiz() {
   const q = QMAP.get(session.order[session.idx]);
   answered = false;
@@ -201,6 +214,10 @@ function renderQuiz() {
   $("qImp").textContent = impStars(imp) + " " + impLabel(imp);
   $("qImp").className = "imp-badge imp-" + imp;
   $("qImp").title = "重要度：" + impLabel(imp);
+
+  // これまでの到達ランク（解く前の状態）
+  updateRankBadge(q.id);
+
   $("questionText").textContent = q.q;
 
   const multi = q.answer.length > 1;
@@ -247,14 +264,18 @@ function onChoice(i, multi) {
 // 累計成績を prev → next へ付け替える（null は「記録なし」）
 function recordStat(qid, prev, next) {
   if (prev === next) return;
-  const s = stats[qid] || { c: 0, w: 0, a: 0 };
+  const s = stats[qid] || { c: 0, w: 0, a: 0, s: 0 };
   if (s.a === undefined) s.a = 0;                 // 旧データの補完
-  if (prev === "correct") s.c = Math.max(0, s.c - 1);
+  if (s.s === undefined) s.s = 0;
+
+  if (prev === "correct") { s.c = Math.max(0, s.c - 1); s.s = Math.max(0, s.s - 1); }
   if (prev === "assist")  s.a = Math.max(0, s.a - 1);
   if (prev === "wrong")   s.w = Math.max(0, s.w - 1);
-  if (next === "correct") s.c++;
-  if (next === "assist")  s.a++;
-  if (next === "wrong")   s.w++;
+
+  if (next === "correct") { s.c++; s.s++; }
+  if (next === "assist")  { s.a++; s.s = 0; }     // 参照した時点で連続は途切れる
+  if (next === "wrong")   { s.w++; s.s = 0; }
+
   stats[qid] = s;
   save(STATS_KEY, stats);
 }
@@ -312,8 +333,21 @@ function refreshVerdict() {
   const note = $("verdictNote");
   const btn = $("btnDowngrade");
 
+  const qid = session.order[session.idx];
+  updateRankBadge(qid);
+
   if (res === "skip")         { v.textContent = "― 未回答"; v.className = "verdict sk"; }
-  else if (res === "correct") { v.textContent = "○ 正解";   v.className = "verdict ok"; }
+  else if (res === "correct") {
+    const st = qStreak(qid);
+    if (st >= STREAK_RANK) {
+      // 2回以上つづけて自力で正解した問題は、正解の上のランクとして表示する
+      v.className = "verdict rk";
+      v.innerHTML = "◎ 連続正解" + '<span class="verdict-tag">' + st + "回つづけて自力正解</span>";
+    } else {
+      v.textContent = "○ 正解";
+      v.className = "verdict ok";
+    }
+  }
   else if (res === "assist")  {
     v.className = "verdict as";
     v.innerHTML = "○ 正解" + '<span class="verdict-tag">コマンド表を参照</span>';
@@ -408,8 +442,14 @@ function renderResult() {
   const rate = pct(t.correct, t.total);
 
   $("resultRate").textContent = rate + "%";
+  // この回で正解した問題のうち、連続正解のランクに達したもの
+  const streaked = session.order.filter((id, i) =>
+    session.results[i] === "correct" && qRank(id) === 3).length;
+
   $("resultSub").textContent  = t.correct + " / " + t.total + " 問を自力で正解"
     + (t.assist ? "（ほかに参照 " + t.assist + " 問）" : "");
+  $("resultStreak").hidden = streaked === 0;
+  $("resultStreak").innerHTML = "◎ うち <b>" + streaked + "問</b> が連続正解（2回以上つづけて自力正解）";
   $("rTotal").textContent   = t.total;
   $("rCorrect").textContent = t.correct;
   $("rAssist").textContent  = t.assist;

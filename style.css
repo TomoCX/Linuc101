@@ -9,6 +9,7 @@
   --accent:    #4da3ff;
   --accent-d:  #2b7fdb;
   --correct:   #3fbf7f;
+  --streak:    #ffd166;
   --assist:    #a3aec2;
   --wrong:     #ef5f6b;
   --skip:      #59647c;
@@ -1529,3 +1530,60 @@ mark.kp::before, code.kp::before {
 @media (max-width: 560px) {
   .note-toggles { flex-direction: column; gap: 4px; }
 }
+
+/* ==================================================================
+   到達ランク（－未着手 / △つまずき / ○正解 / ◎連続正解）
+================================================================== */
+.rank-badge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--card-2);
+  font-size: 11.5px;
+  letter-spacing: .04em;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.rank-badge.rank-1 {
+  border-color: rgba(239, 95, 107, .4);
+  color: var(--wrong);
+}
+.rank-badge.rank-2 {
+  border-color: rgba(63, 191, 127, .45);
+  color: var(--correct);
+}
+.rank-badge.rank-3 {
+  border-color: rgba(255, 209, 102, .6);
+  background: rgba(255, 209, 102, .13);
+  color: var(--streak);
+  font-weight: 600;
+}
+
+/* 判定表示（正解の上のランク） */
+.verdict.rk { color: var(--streak); }
+.verdict.rk .verdict-tag {
+  font-size: 13px;
+  font-weight: 400;
+  margin-left: 8px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 209, 102, .45);
+  background: rgba(255, 209, 102, .12);
+  color: var(--streak);
+  vertical-align: middle;
+}
+
+/* 累計成績の「◎連続」列 */
+.cell-rank { color: var(--streak); }
+
+/* 結果画面 */
+.result-streak {
+  font-size: 14px;
+  color: var(--streak);
+  margin-bottom: 8px;
+}
+.result-streak b { font-weight: 700; }
+
+/* 復習おすすめのバー */
+.seg-streak { background: var(--streak); }

@@ -28,25 +28,32 @@ const QIDS_BY_SEC = new Map();
 
 /*
    累計成績から、節ごとの習得状況を出す。
-   分母はその節の全問題数。1問ずつ次のどれかに分類する。
+   分母はその節の全問題数。1問ずつ到達ランクで分類する。
+     streak    … 2回以上つづけて自力正解（定着）
      mastered  … 一度でも自力で正解した
      stumbled  … 解いたが自力正解はまだ（不正解・参照つき正解のみ）
      untouched … まだ一度も解いていない
+   ok = streak + mastered（自力で正解できている問題）
 */
 function recMasteryByStats() {
   const out = [];
   QIDS_BY_SEC.forEach((ids, key) => {
-    let mastered = 0, stumbled = 0, untouched = 0;
+    let streak = 0, mastered = 0, stumbled = 0, untouched = 0;
     for (const id of ids) {
-      const st = stats[id];
-      if (!st || (st.c + st.w + (st.a || 0)) === 0) { untouched++; continue; }
-      if (st.c > 0) mastered++; else stumbled++;
+      const r = qRank(id);
+      if (r === 3) streak++;            // ◎ 連続正解
+      else if (r === 2) mastered++;     // ○ 正解
+      else if (r === 1) stumbled++;     // △ つまずき
+      else untouched++;                 // － 未着手
     }
+    const ok = streak + mastered;       // 自力で正解できている問題
     out.push({
       key: key, title: secTitle(key), theme: secTheme(key),
-      total: ids.length, mastered: mastered, stumbled: stumbled, untouched: untouched,
-      answered: mastered + stumbled,
-      rate: ids.length ? Math.round((mastered / ids.length) * 100) : 0
+      total: ids.length,
+      streak: streak, mastered: mastered, stumbled: stumbled, untouched: untouched,
+      ok: ok,
+      answered: ok + stumbled,
+      rate: ids.length ? Math.round((ok / ids.length) * 100) : 0
     });
   });
   return out;
@@ -96,10 +103,11 @@ function recBuildItem(item) {
     "</div>" +
     '<div class="rec-sub">' + item.sub + "</div>";
 
-  // 習得状況のバー（自力正解／つまずき／未着手）
+  // 習得状況のバー（連続正解／正解／つまずき／未着手）
   if (item.bar) {
     html +=
-      '<div class="rec-bar" title="自力正解 ' + item.mastered + ' ・ つまずき ' + item.stumbled + ' ・ 未着手 ' + item.untouched + '">' +
+      '<div class="rec-bar" title="連続正解 ' + item.streak + ' ・ 正解 ' + item.mastered + ' ・ つまずき ' + item.stumbled + ' ・ 未着手 ' + item.untouched + '">' +
+        '<span class="seg seg-streak" style="width:' + (item.streak / item.total * 100) + '%"></span>' +
         '<span class="seg seg-correct" style="width:' + (item.mastered / item.total * 100) + '%"></span>' +
         '<span class="seg seg-wrong" style="width:' + (item.stumbled / item.total * 100) + '%"></span>' +
         '<span class="seg seg-skip" style="width:' + (item.untouched / item.total * 100) + '%"></span>' +
@@ -187,7 +195,7 @@ function renderResultRecommend() {
       lost: lost,
       bar: true,
       sub: "この回で " + lost + "問 落とした（" + parts.join(" ・ ") + "）<br>" +
-           "この項目は全 " + m.total + "問 ── 自力正解 <b>" + m.mastered + "問</b> ・ " +
+           "この項目は全 " + m.total + "問 ── 自力正解 <b>" + m.ok + "問</b>（うち◎連続正解 " + m.streak + "問） ・ " +
            "つまずき " + m.stumbled + "問 ・ 未着手 " + m.untouched + "問"
     }));
   });
@@ -209,12 +217,12 @@ function renderHomeRecommend() {
 
   // まだ自力正解できていない問題が残っている節を、習得率の低い順に
   const items = all
-    .filter(x => x.mastered < x.total)
+    .filter(x => x.ok < x.total)
     .sort((x, y) => (x.rate - y.rate) || (y.stumbled - x.stumbled))
     .map(x => Object.assign({}, x, {
       bar: true,
-      sub: "全 " + x.total + "問中 <b>" + x.mastered + "問</b> を自力で正解" +
-           "（つまずき " + x.stumbled + "問 ・ 未着手 " + x.untouched + "問）"
+      sub: "全 " + x.total + "問中 <b>" + x.ok + "問</b> を自力で正解（うち◎連続 " + x.streak + "問）" +
+           " ・ つまずき " + x.stumbled + "問 ・ 未着手 " + x.untouched + "問"
     }));
 
   recRender("recHome", items.slice(0, 5),

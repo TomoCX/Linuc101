@@ -109,6 +109,29 @@ function isTyping(el) {
 function secTheme(key) { const i = key.indexOf("/"); return i < 0 ? "00" : key.slice(0, i); }
 function secTitle(key) { const i = key.indexOf("/"); return i < 0 ? key : key.slice(i + 1); }
 
+/* ---------------- 問題ごとの到達ランク ----------------
+     3 ◎ 連続正解 … 直近2回以上つづけて自力で正解した
+     2 ○ 正解     … 自力で正解した実績がある
+     1 △ つまずき … 解いたが、まだ自力正解がない
+     0 － 未着手   … まだ解いていない
+------------------------------------------------------ */
+const RANK_MARK  = ["－", "△", "○", "◎"];
+const RANK_LABEL = ["未着手", "つまずき", "正解", "連続正解"];
+const STREAK_RANK = 2;              // このランクに上がるのに必要な連続正解の回数
+
+function qRank(id) {
+  const s = stats[id];
+  if (!s || (s.c + s.w + (s.a || 0)) === 0) return 0;
+  if ((s.s || 0) >= STREAK_RANK) return 3;
+  return s.c > 0 ? 2 : 1;
+}
+
+// その問題の現在の連続正解数
+function qStreak(id) {
+  const s = stats[id];
+  return s ? (s.s || 0) : 0;
+}
+
 /* ---------------- セッションの集計 ---------------- */
 function tally(s) {
   if (!s) return { total: 0, correct: 0, assist: 0, wrong: 0, skip: 0 };

@@ -150,6 +150,7 @@ const SCREENS = ["home", "quiz", "result", "notes", "cards"];
 
 function show(name) {
   for (const id of SCREENS) $("screen-" + id).hidden = (id !== name);
+  if (typeof aiRefresh === "function") aiRefresh();
   window.scrollTo(0, 0);
 }
 

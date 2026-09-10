@@ -13,7 +13,7 @@ if (-not $dir) { $dir = (Get-Location).Path }
 $html  = [IO.File]::ReadAllText("$dir\index.html")
 $css   = [IO.File]::ReadAllText("$dir\style.css")
 $html = $html.Replace('<link rel="stylesheet" href="style.css">', "<style>`n$css`n</style>")
-foreach ($f in @('auth.js', 'core.js', 'questions.js', 'questions-sec.js', 'commands.js', 'notes.js', 'cards.js', 'keypoints.js', 'notes-view.js', 'cards-view.js', 'glossary.js', 'review-view.js', 'help-view.js', 'sync-view.js', 'app.js')) {
+foreach ($f in @('auth.js', 'core.js', 'questions.js', 'questions-sec.js', 'commands.js', 'notes.js', 'cards.js', 'keypoints.js', 'notes-view.js', 'cards-view.js', 'glossary.js', 'review-view.js', 'help-view.js', 'sync-view.js', 'ai-view.js', 'app.js')) {
   $js = [IO.File]::ReadAllText("$dir\$f")
   $html = $html.Replace("<script src=""$f""></script>", "<script>`n$js`n</script>")
 }

@@ -38,6 +38,7 @@
   </div>
   <div class="topbar-right">
     <span id="topbarStatus"></span>
+    <button class="btn btn-mini btn-ai" id="btnAiTop">AIに質問 <kbd>A</kbd></button>
     <button class="btn btn-mini" id="btnCardsTop">単語帳</button>
     <button class="btn btn-mini" id="btnNotesTop">暗記ノート</button>
     <button class="btn btn-mini" id="btnHelpTop">コマンド表 <kbd>H</kbd></button>
@@ -75,6 +76,47 @@
     </div>
   </div>
   <div class="help-body" id="helpBody"></div>
+</aside>
+
+<!-- ==================== AIアシスタント ==================== -->
+<button id="aiTab" title="AIに質問する（A）">
+  <span class="aiTab-txt">AIに質問</span>
+</button>
+<div id="aiBackdrop"></div>
+
+<aside id="aiPanel" aria-label="AIアシスタント">
+  <div class="ai-head">
+    <div class="ai-title">
+      <b>AIに質問</b>
+      <span class="ai-mode" id="aiMode">アプリ内を検索</span>
+      <button class="help-close" id="btnAiClose" title="閉じる">×</button>
+    </div>
+    <details class="ai-ctx">
+      <summary>いま見ている画面：<span id="aiCtxLabel">ホーム</span></summary>
+      <pre class="ai-ctx-dump" id="aiCtxDump"></pre>
+      <p class="hint">この内容だけをAIに送ります。APIキーやほかの成績は送りません。</p>
+    </details>
+    <div class="ai-assist-note" id="aiAssistNote" hidden>
+      解答前の質問です。この問題は正解しても<b>「正解（参照）」</b>として記録されます。
+    </div>
+  </div>
+
+  <div class="ai-log" id="aiLog"></div>
+  <div class="ai-empty" id="aiEmpty">
+    <p>いま開いている問題・ノート・単語帳を見たうえで答えます。</p>
+    <p class="hint">例）「なぜこの答えになるの？」「-r と -R の違いは？」「この節を3行でまとめて」</p>
+  </div>
+
+  <div class="ai-foot">
+    <div class="ai-suggest" id="aiSuggest"></div>
+    <form class="ai-form" id="aiForm">
+      <textarea id="aiInput" rows="2" placeholder="質問を入力（Enterで送信 / Shift+Enterで改行）" autocomplete="off"></textarea>
+      <div class="ai-form-btns">
+        <button type="submit" class="btn btn-primary" id="aiSend">質問する</button>
+        <button type="button" class="btn btn-ghost btn-mini" id="btnAiClear">会話を消す</button>
+      </div>
+    </form>
+  </div>
 </aside>
 
 <main>
@@ -291,6 +333,47 @@
         </div>
       </div>
     </div>
+    <div class="field sync-auto">
+      <label>AIアシスタント（質問して答えてもらう）</label>
+      <div class="sync-status" id="aiKeyStatus">未設定</div>
+
+      <div id="aiKeySet">
+        <p class="hint">
+          Anthropic の
+          <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">APIキー</a>
+          を入れると、いま開いている問題やノートを見たうえでAIが日本語で答えます。
+          キーが無くても、アプリ内の教材を検索して答える簡易モードで使えます。
+        </p>
+        <div class="btn-row btn-row-tight">
+          <input type="password" id="aiKeyInput" class="sync-input" placeholder="sk-ant- で始まるキー" autocomplete="off" spellcheck="false">
+          <button class="btn btn-primary" id="btnAiKeySave">保存する</button>
+        </div>
+        <p class="hint hint-caution">
+          キーはこの端末のブラウザにだけ保存され、Gistの同期にも含まれません（Anthropicへの通信を除く）。
+          共有のPCでは使わないでください。質問1回ごとにあなたのAnthropicアカウントに料金がかかります。
+        </p>
+      </div>
+
+      <div id="aiKeyDone" hidden>
+        <div class="btn-row btn-row-tight">
+          <button class="btn btn-ghost" id="btnAiKeyClear">キーを削除</button>
+        </div>
+      </div>
+
+      <div class="btn-row btn-row-tight ai-opts">
+        <label class="ai-effort-label">考える深さ
+          <select id="aiEffort" class="sync-input">
+            <option value="low">浅い（速い・安い）</option>
+            <option value="medium">ふつう</option>
+            <option value="high">深い（丁寧・高い）</option>
+          </select>
+        </label>
+      </div>
+      <label class="check-inline">
+        <input type="checkbox" id="aiAssist">
+        <span>解答前にAIへ質問したら「参照」扱いにする</span>
+      </label>
+    </div>
   </div>
 
 </section>
@@ -410,6 +493,7 @@
       <button class="btn btn-primary" id="btnAnswer" hidden>解答する</button>
       <button class="btn btn-ghost" id="btnSkip">スキップ（未回答）</button>
       <button class="btn btn-help" id="btnHelpQuiz">コマンド表を開く</button>
+      <button class="btn btn-ai" id="btnAiQuiz">AIに質問 <kbd>A</kbd></button>
     </div>
 
     <div class="explain" id="explain" hidden>
@@ -493,6 +577,7 @@
 <script src="review-view.js"></script>
 <script src="help-view.js"></script>
 <script src="sync-view.js"></script>
+<script src="ai-view.js"></script>
 
 <!-- 本体（最後に読み込んで初期化する） -->
 <script src="app.js"></script>

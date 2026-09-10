@@ -217,6 +217,7 @@ function renderQuiz() {
 
   // これまでの到達ランク（解く前の状態）
   updateRankBadge(q.id);
+  if (typeof aiRefresh === "function") aiRefresh();
 
   $("questionText").textContent = q.q;
 
@@ -335,6 +336,7 @@ function refreshVerdict() {
 
   const qid = session.order[session.idx];
   updateRankBadge(qid);
+  if (typeof aiRefresh === "function") aiRefresh();
 
   if (res === "skip")         { v.textContent = "― 未回答"; v.className = "verdict sk"; }
   else if (res === "correct") {

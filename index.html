@@ -125,7 +125,10 @@
   </div>
 
   <div class="ai-foot">
-    <button class="btn btn-primary btn-lg" id="btnAiCopy">この内容をコピーする</button>
+    <div class="ai-foot-btns">
+      <a class="btn btn-primary btn-lg" id="btnAiCopyOpen" role="button">コピーしてClaudeを開く</a>
+      <button class="btn" id="btnAiCopy">コピーだけ</button>
+    </div>
     <div class="ai-copy-msg" id="aiCopyMsg" hidden></div>
   </div>
 </aside>
@@ -354,6 +357,20 @@
         <input type="checkbox" id="aiAssist">
         <span>解答前にコピーしたら「参照」扱いにする</span>
       </label>
+      <div class="ai-opts">
+        <label class="ai-open-label">コピーしたら
+          <select id="aiOpen" class="sync-input">
+            <option value="browser">Claudeを開く（アプリがあればアプリ）</option>
+            <option value="app">Claudeアプリを直接開く</option>
+            <option value="none">開かない（コピーだけ）</option>
+          </select>
+        </label>
+        <p class="hint">
+          スマホでは <code>claude.ai/new</code> のリンクがClaudeアプリに引き渡されます。
+          アプリが開かないときは「アプリを直接開く」を試してください
+          （アプリが入っていないとエラーが出ます）。
+        </p>
+      </div>
       <label class="check-inline">
         <input type="checkbox" id="aiWithAnswer">
         <span>未解答の問題でも、正解と解説を含めてコピーする</span>
@@ -478,7 +495,7 @@
       <button class="btn btn-primary" id="btnAnswer" hidden>解答する</button>
       <button class="btn btn-ghost" id="btnSkip">スキップ（未回答）</button>
       <button class="btn btn-help" id="btnHelpQuiz">コマンド表を開く</button>
-      <button class="btn btn-ai" id="btnAiQuiz">Claudeにコピー</button>
+      <a class="btn btn-ai" id="btnAiQuiz" role="button">Claudeにコピー</a>
     </div>
 
     <div class="explain" id="explain" hidden>

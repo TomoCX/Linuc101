@@ -11,11 +11,40 @@
 const AI_KEY     = "linuc101.ai.v1";   // この機能の設定（同期の対象外）
 const AI_MAX_CTX = 14000;              // 書き出す文字数の上限
 
-let aiCfg = load(AI_KEY, { assist: true, withAnswer: false });
+/*
+   コピーのあとに開く先。
+     browser … https://claude.ai/new
+               claude.ai の Universal Links に /new が登録されているため、
+               スマホでClaudeアプリが入っていればアプリが開く。無ければブラウザ。
+     app     … claude://claude.ai/new（アプリを直接呼ぶ。未インストールだとエラー）
+     none    … 開かない
+*/
+const AI_OPEN_URL = {
+  browser: "https://claude.ai/new",
+  app: "claude://claude.ai/new"
+};
+
+// 指で操作する端末か（スマホ・タブレット）
+function aiIsTouch() {
+  return !!(window.matchMedia && window.matchMedia("(hover: none) and (pointer: coarse)").matches);
+}
+
+let aiCfg = load(AI_KEY, null) || {};
 if (aiCfg.key !== undefined) {         // 旧版で保存されたAPIキーは残さない
   delete aiCfg.key;
   delete aiCfg.effort;
-  save(AI_KEY, aiCfg);
+}
+if (aiCfg.assist === undefined)     aiCfg.assist = true;
+if (aiCfg.withAnswer === undefined) aiCfg.withAnswer = false;
+
+/*
+   実際に使う開き方。
+   利用者が選んでいなければ、そのつど端末を見て決める
+   （スマホはClaudeを開く／PCはコピーだけ。読み込んだ直後は端末の判定が
+     定まらないことがあるので、値を焼き付けずに毎回見る）
+*/
+function aiOpenMode() {
+  return aiCfg.open || (aiIsTouch() ? "browser" : "none");
 }
 
 /* ---------------- 貼り付け先への指示 ---------------- */
@@ -300,27 +329,71 @@ async function aiDoCopy() {
   aiUpdate();
 }
 
-/* パネルを開かずに、その場でコピーする（出題画面のボタン用） */
+/* ---------------- コピーしてClaudeを開く ---------------- */
 let aiToastTimer = null;
 
-function aiToast(ok, n) {
+function aiToast(ok, n, opening) {
   const el = $("aiToast");
   el.hidden = false;
   el.className = ok ? "is-ok" : "is-ng";
   el.textContent = ok
-    ? "コピーしました（" + n + "文字）　Claudeに貼り付けて、下に質問を書いてください"
+    ? "コピーしました（" + n + "文字）　" +
+      (opening ? "Claudeで貼り付けて、下に質問を書いてください" : "Claudeに貼り付けて、下に質問を書いてください")
     : "コピーできませんでした。パネルを開いて手動で選んでください";
   clearTimeout(aiToastTimer);
   aiToastTimer = setTimeout(() => { el.hidden = true; }, 4500);
 }
 
-async function aiQuickCopy() {
+/*
+   リンク（<a>）が押されたときの処理。
+   Universal Links は「利用者がリンクを押した」ときしかアプリに渡らないので、
+   ここでは既定の遷移を止めず、コピーだけ同期的に済ませる。
+   （execCommand は同期なので、画面が切り替わる前に確実に書き込める）
+*/
+function aiCopyAndOpen(e) {
   markAssistIfUnanswered();
-  const text = aiFullText("");
-  const ok = await aiCopyToClipboard(text);
-  aiToast(ok, text.length);
-  if (!ok) openAi(true);          // うまくいかなければパネルを開いて手動でコピーしてもらう
+  const el = e.currentTarget;
+  const text = aiFullText(el.id === "btnAiCopyOpen" ? $("aiQuestion").value : "");
+  const open = aiOpenMode() !== "none" && el.getAttribute("href");
+
+  // 開き方は押された時点で決める（読み込み時には端末の判定が定まらないことがある）
+  if (aiIsTouch()) el.removeAttribute("target");            // スマホ：同じタブ→アプリへ引き渡し
+  else { el.setAttribute("target", "_blank"); el.setAttribute("rel", "noopener"); }
+
+  /*
+     画面が切り替わる前に確実に書き込みたいので、まず同期の方法で入れる。
+     そのうえで新しい方式でも書き込んでおく（どちらも同じ文面なので重ねても問題ない）。
+     同期が断られた環境では、新しい方式の結果を待って知らせる。
+  */
+  let ok = aiCopyFallback(text);
+  const modern = navigator.clipboard && window.isSecureContext;
+
+  if (modern) {
+    navigator.clipboard.writeText(text).catch(() => {
+      if (!ok) { aiToast(false, text.length, false); openAi(true); }
+    });
+    ok = true;
+  }
+
+  if (!open || !ok) e.preventDefault();
+  aiToast(ok, text.length, !!open && ok);
+  if (!ok) openAi(true);          // 手動で選んでコピーしてもらう
   else aiRefresh();
+}
+
+// 設定に合わせてリンク先を入れ替える
+function aiApplyOpenLinks() {
+  const url = AI_OPEN_URL[aiOpenMode()] || "";
+  for (const id of ["btnAiQuiz", "btnAiCopyOpen"]) {
+    const el = $(id);
+    if (!el) continue;
+    if (url) el.setAttribute("href", url);
+    else { el.removeAttribute("href"); el.removeAttribute("target"); }
+  }
+  $("btnAiQuiz").textContent = url ? "Claudeにコピーして開く" : "Claudeにコピー";
+  $("btnAiCopyOpen").hidden = !url;
+  $("btnAiCopy").className = url ? "btn" : "btn btn-primary btn-lg";
+  $("btnAiCopy").textContent = url ? "コピーだけ" : "この内容をコピーする";
 }
 
 // 解答前のコピーは、コマンド表と同じく「参照」扱いにする
@@ -444,12 +517,15 @@ function openAi(open) {
 
 // 画面が切り替わったときに、開いていれば内容を取り直す（core.js の show() などから呼ぶ）
 function aiRefresh() {
+  aiApplyOpenLinks();
   if (!document.body.classList.contains("ai-open")) return;
   aiUpdate();
   aiRenderSuggest();
 }
 
 function aiRenderSettings() {
+  $("aiOpen").value = aiOpenMode();
+  aiApplyOpenLinks();
   $("aiAssist").checked = aiCfg.assist !== false;
   $("aiWithAnswer").checked = !!aiCfg.withAnswer;
 }
@@ -463,7 +539,8 @@ $("aiTab").addEventListener("click", () => openAi(true));
 $("btnAiTop").addEventListener("click", () => openAi(!document.body.classList.contains("ai-open")));
 $("btnAiClose").addEventListener("click", () => openAi(false));
 $("aiBackdrop").addEventListener("click", () => openAi(false));
-$("btnAiQuiz").addEventListener("click", aiQuickCopy);
+$("btnAiQuiz").addEventListener("click", aiCopyAndOpen);
+$("btnAiCopyOpen").addEventListener("click", aiCopyAndOpen);
 
 $("btnAiCopy").addEventListener("click", aiDoCopy);
 $("aiQuestion").addEventListener("input", aiUpdate);
@@ -487,6 +564,7 @@ $("aiLocalInput").addEventListener("keydown", (e) => {
 
 $("aiAssist").addEventListener("change", (e) => { aiCfg.assist = e.target.checked; aiSaveCfg(); });
 $("aiWithAnswer").addEventListener("change", (e) => { aiCfg.withAnswer = e.target.checked; aiSaveCfg(); });
+$("aiOpen").addEventListener("change", (e) => { aiCfg.open = e.target.value; aiSaveCfg(); });
 
 document.addEventListener("keydown", (e) => {
   if (e.ctrlKey || e.altKey || e.metaKey) return;
@@ -504,3 +582,11 @@ window.addEventListener("scroll", () => {
 }, { passive: true });
 
 aiRenderSettings();
+
+// 端末の判定が後から変わったとき（スマホ表示への切り替えなど）にも追随させる
+if (window.matchMedia) {
+  const mq = window.matchMedia("(hover: none) and (pointer: coarse)");
+  const onChange = () => { if (!aiCfg.open) aiRenderSettings(); };
+  if (mq.addEventListener) mq.addEventListener("change", onChange);
+  else if (mq.addListener) mq.addListener(onChange);
+}

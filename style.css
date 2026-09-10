@@ -179,6 +179,7 @@ main {
   cursor: pointer;
   transition: .12s;
 }
+a.btn { display: inline-block; text-decoration: none; text-align: center; }
 .btn:hover { border-color: var(--accent); background: #27334a; }
 .btn-primary {
   background: var(--accent);
@@ -1780,7 +1781,7 @@ body.ai-open #aiTab { display: none; }
   padding: 12px 16px calc(14px + env(safe-area-inset-bottom));
   background: var(--bg-soft);
 }
-.ai-foot .btn { width: 100%; }
+.ai-foot > .btn { width: 100%; }
 .ai-copy-msg {
   margin-top: 9px;
   padding: 8px 11px;
@@ -1828,3 +1829,19 @@ body.ai-open #aiTab { display: none; }
   background: #322a15;
   color: var(--warn);
 }
+
+/* コピー先の選択（ホームの設定） */
+.ai-open-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 10px;
+}
+.ai-open-label select { flex: 1 1 auto; min-width: 0; }
+
+/* パネル下部の2つのボタン */
+.ai-foot-btns { display: flex; gap: 8px; }
+.ai-foot-btns .btn:first-child { flex: 1 1 auto; }
+.ai-foot-btns .btn:last-child { flex: 0 0 auto; }

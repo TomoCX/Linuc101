@@ -188,6 +188,19 @@
     </div>
   </div>
 
+  <div class="card due-card" id="dueCard" hidden>
+    <div class="card-head">
+      <h2>復習の期限が来た問題　<b class="due-count" id="dueCount">0</b>問</h2>
+    </div>
+    <p class="sync-lead">
+      間違えた問題はすぐに、連続で正解した問題は間隔を空けて（1日→3日→7日→14日→30日）もう一度出します。
+      <span id="dueDetail"></span>
+    </p>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btnStartDue">期限が来た問題を解く</button>
+    </div>
+  </div>
+
   <div class="card" id="recHomeCard" hidden>
     <div class="card-head">
       <h2>いま復習すべき項目</h2>
@@ -256,7 +269,12 @@
         <input type="checkbox" id="optWeak">
         <span>間違えやすい問題を優先して出題する</span>
       </label>
-      <div class="hint">これまでの累計成績で不正解が多い問題を優先します。</div>
+      <div class="hint">不正解が多い問題と、復習の期限が来た問題を優先します。連続正解した問題は期限が来るまで後回しにします。</div>
+      <label class="check-inline">
+        <input type="checkbox" id="optShuffle">
+        <span>選択肢の並び順をシャッフルする</span>
+      </label>
+      <div class="hint">正解の位置で覚えてしまうのを防ぎます。外すと問題データの順（A〜D固定）で出ます。</div>
     </div>
 
     <div class="btn-row">

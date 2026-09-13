@@ -60,7 +60,7 @@ let cardsLearned = load(CARDS_KEY, {});      // { カードID: true }
 let lastChangeAt = load(STAMP_KEY, 0);       // 同期の新旧判定に使う
 let gist         = load(GIST_KEY, { token: "", id: "", auto: true, lastSyncAt: 0 });
 let config       = load(CONFIG_KEY, {
-  count: 20, cats: null, order: "random", weak: false, keepHelp: true, imp: 0
+  count: 20, cats: null, order: "random", weak: false, shuffle: true, keepHelp: true, imp: 0
 });
 
 /* ---------------- 小さな道具 ---------------- */
@@ -116,6 +116,38 @@ const KEYS = ["A", "B", "C", "D", "E", "F", "G", "H"];   // 選択肢の記号
 function impStars(n) { return "★★★".slice(0, n) + "☆☆☆".slice(0, 3 - n); }
 function impLabel(n) { return n === 3 ? "必出" : n === 2 ? "重要" : "補足"; }
 
+/* ---------------- 累計成績（stats）の読み書き ----------------
+   stats[問題ID] = { c, w, a, s, t }
+     c … 自力で正解した回数    w … 不正解の回数    a … 参照つき正解の回数
+     s … 現在の連続正解数（不正解・参照で 0 に戻る）
+     t … 最後に解答した時刻（ms）。旧データには無い（0 = 不明）
+   ほかのファイルからは直接触らず、ここの関数を通す。
+------------------------------------------------------ */
+function statOf(id) {
+  const s = stats[id] || {};
+  return { c: s.c || 0, w: s.w || 0, a: s.a || 0, s: s.s || 0, t: s.t || 0 };
+}
+function statTries(id) { const s = statOf(id); return s.c + s.w + s.a; }   // 解いた回数
+function statFails(id) { const s = statOf(id); return s.w + s.a; }         // 自力で正解できなかった回数
+
+// 累計成績を prev → next へ付け替える（null は「記録なし」）
+function recordStat(qid, prev, next) {
+  if (prev === next) return;
+  const s = statOf(qid);
+
+  if (prev === "correct") { s.c = Math.max(0, s.c - 1); s.s = Math.max(0, s.s - 1); }
+  if (prev === "assist")  s.a = Math.max(0, s.a - 1);
+  if (prev === "wrong")   s.w = Math.max(0, s.w - 1);
+
+  if (next === "correct") { s.c++; s.s++; }
+  if (next === "assist")  { s.a++; s.s = 0; }     // 参照した時点で連続は途切れる
+  if (next === "wrong")   { s.w++; s.s = 0; }
+
+  s.t = Date.now();
+  stats[qid] = s;
+  save(STATS_KEY, stats);
+}
+
 /* ---------------- 問題ごとの到達ランク ----------------
      3 ◎ 連続正解 … 直近2回以上つづけて自力で正解した
      2 ○ 正解     … 自力で正解した実績がある
@@ -127,16 +159,68 @@ const RANK_LABEL = ["未着手", "つまずき", "正解", "連続正解"];
 const STREAK_RANK = 2;              // このランクに上がるのに必要な連続正解の回数
 
 function qRank(id) {
-  const s = stats[id];
-  if (!s || (s.c + s.w + (s.a || 0)) === 0) return 0;
-  if ((s.s || 0) >= STREAK_RANK) return 3;
+  const s = statOf(id);
+  if (s.c + s.w + s.a === 0) return 0;
+  if (s.s >= STREAK_RANK) return 3;
   return s.c > 0 ? 2 : 1;
 }
 
 // その問題の現在の連続正解数
-function qStreak(id) {
-  const s = stats[id];
-  return s ? (s.s || 0) : 0;
+function qStreak(id) { return statOf(id).s; }
+
+/* ---------------- 復習の間隔（間隔反復） ----------------
+   連続正解が伸びるほど、次に出すまでの日数を空ける。
+     連続 0 … すぐ   1 … 1日   2 … 3日   3 … 7日   4 … 14日   5以上 … 30日
+   最後に解いた時刻が無い旧データは「期限切れ」として扱う。
+------------------------------------------------------ */
+const REVIEW_DAYS = [0, 1, 3, 7, 14, 30];
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function reviewDays(streak) { return REVIEW_DAYS[Math.min(streak, REVIEW_DAYS.length - 1)]; }
+function daysSince(t) { return t ? (Date.now() - t) / DAY_MS : Infinity; }
+
+// 復習の期限が来ているか（解いたことがない問題は対象外）
+function isDue(id) {
+  const s = statOf(id);
+  if (s.c + s.w + s.a === 0) return false;
+  return daysSince(s.t) >= reviewDays(s.s);
+}
+
+// 「前回: 3日前」のような表示
+function lastAnsweredText(id) {
+  const t = statOf(id).t;
+  if (!t) return "";
+  const d = Math.floor(daysSince(t));
+  return d === 0 ? "今日" : d + "日前";
+}
+
+/* ---------------- 選択肢の表示順 ----------------
+   正解の位置が偏らないよう、出題ごとに並び替える。
+   session.perms[i] に「表示位置 → 元の番号」を持ち、
+   記録（picked / answer）は元の番号のまま扱う。
+------------------------------------------------------ */
+function makePerm(n, shuffled) {
+  const p = [...Array(n).keys()];
+  return shuffled ? shuffle(p) : p;
+}
+
+// セッションの i 問目の表示順（無ければ元の順）
+function choicePerm(s, i, n) {
+  const p = s.perms && s.perms[i];
+  return (Array.isArray(p) && p.length === n) ? p : [...Array(n).keys()];
+}
+
+// 元の番号 → 表示の記号（A, B, …）
+function choiceKey(perm, orig) {
+  const d = perm.indexOf(orig);
+  return KEYS[d] || (d + 1);
+}
+
+// 記録の並び（元の番号の配列）を、画面の並び順で「A. 本文 ／ B. 本文」の形にする
+function choiceText(q, perm, origs) {
+  return origs.slice()
+    .sort((x, y) => perm.indexOf(x) - perm.indexOf(y))
+    .map(n => choiceKey(perm, n) + ". " + q.choices[n]).join(" ／ ");
 }
 
 /* ---------------- セッションの集計 ---------------- */

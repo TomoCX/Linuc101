@@ -105,9 +105,8 @@ function renderLifetime() {
     for (const q of QUESTIONS) {
       if (q.cat !== id) continue;
       if (qRank(q.id) === 3) k++;
-      const s = stats[q.id];
-      if (!s) continue;
-      c += s.c; a += s.a || 0; t += s.c + s.w + (s.a || 0);
+      const s = statOf(q.id);
+      c += s.c; a += s.a; t += s.c + s.w + s.a;
     }
     tc += c; ta += a; tt += t; tk += k;
     row('<span class="cat-id">' + id + "</span> " + name, t, c, a, k);
@@ -117,11 +116,29 @@ function renderLifetime() {
 
 function renderHome() {
   renderSessionCard();
+  renderDueCard();
   renderLifetime();
   renderHomeRecommend();
   updateCountHint();
   setRelatedCommands(null);
   show("home");
+}
+
+// 復習の期限が来た問題の案内（無ければカードごと隠す）
+function renderDueCard() {
+  const due = dueQuestions();
+  const card = $("dueCard");
+  card.hidden = due.length === 0;
+  if (!due.length) return;
+
+  let check = 0, weak = 0;
+  for (const q of due) { if (qRank(q.id) === 3) check++; else weak++; }
+  $("dueCount").textContent = due.length;
+  $("dueDetail").textContent =
+    (weak ? "つまずいている問題 " + weak + "問" : "") +
+    (weak && check ? " ・ " : "") +
+    (check ? "定着の確認 " + check + "問" : "");
+  $("btnStartDue").textContent = "期限が来た問題を解く（" + due.length + "問）";
 }
 
 /* ==================================================================
@@ -148,12 +165,25 @@ function startSession(ids) {
   session = newSession(order);
 }
 
+/*
+   弱点優先の並び順に使う優先度（高いほど先に出す）。
+     未出題              … 0.5（中間）
+     連続正解まで届いた  … 期限が来ていれば 0.45（確認のため出す）、まだなら 0（後回し）
+     それ以外            … 自力で正解できなかった率。期限前なら半分に、期限が来ていれば最低 0.3
+*/
 function weakScore(q) {
-  if (qRank(q.id) === 3) return 0;                 // 連続正解まで届いた問題は後回し
-  const s = stats[q.id];
-  const n = s ? s.c + s.w + (s.a || 0) : 0;
-  if (!n) return 0.5;                              // 未出題は中間の優先度
-  return (s.w + (s.a || 0)) / n;                   // 自力で正解できなかった率が高いほど優先
+  const n = statTries(q.id);
+  if (!n) return 0.5;
+  const due = isDue(q.id);
+  if (qRank(q.id) === 3) return due ? 0.45 : 0;
+  const fail = statFails(q.id) / n;
+  return due ? Math.max(fail, 0.3) : fail * 0.5;
+}
+
+// 復習の期限が来ている問題（弱点優先の順に並べる）
+function dueQuestions() {
+  return QUESTIONS.filter(q => isDue(q.id))
+    .sort((a, b) => weakScore(b) - weakScore(a));
 }
 
 function newSession(order) {
@@ -161,8 +191,10 @@ function newSession(order) {
     order: order,
     idx: 0,
     results: new Array(order.length).fill(null),   // null | "correct" | "wrong" | "skip"
-    picked: new Array(order.length).fill(null),    // 選んだ選択肢インデックスの配列
+    picked: new Array(order.length).fill(null),    // 選んだ選択肢（元の番号）の配列
     flags: new Array(order.length).fill(null),     // null | "help"（コマンド表参照）| "manual"（自己申告）
+    // 選択肢の表示順（表示位置 → 元の番号）。再開しても同じ並びで出す
+    perms: order.map(id => makePerm(QMAP.get(id).choices.length, config.shuffle !== false)),
     finished: false,
     startedAt: Date.now()
   };
@@ -184,7 +216,8 @@ function updateRankBadge(qid) {
   const el = $("qRank");
   el.textContent = RANK_MARK[rk] + " " + RANK_LABEL[rk] + (rk === 3 ? "（" + st + "回連続）" : "");
   el.className = "rank-badge rank-" + rk;
-  el.title = "この問題のこれまでの成績";
+  const last = lastAnsweredText(qid);
+  el.title = "この問題のこれまでの成績" + (last ? "（前回: " + last + "）" : "");
 }
 
 function renderQuiz() {
@@ -223,17 +256,19 @@ function renderQuiz() {
   $("btnSkip").hidden = false;
   $("explain").hidden = true;
 
+  // 選択肢は表示位置 d に元の番号 perm[d] の内容を出す（ボタンは元の番号を覚えている）
+  const perm = choicePerm(session, session.idx, q.choices.length);
   const box = $("choices");
   box.innerHTML = "";
-  q.choices.forEach((text, i) => {
+  perm.forEach((orig, d) => {
     const btn = document.createElement("button");
     btn.className = "choice";
-    btn.dataset.i = i;
+    btn.dataset.i = orig;
     btn.innerHTML =
-      '<span class="key">' + (KEYS[i] || i + 1) + "</span>" +
-      "<span>" + esc(text) + "</span>" +
+      '<span class="key">' + (KEYS[d] || d + 1) + "</span>" +
+      "<span>" + esc(q.choices[orig]) + "</span>" +
       '<span class="mark"></span>';
-    btn.addEventListener("click", () => onChoice(i, multi));
+    btn.addEventListener("click", () => onChoice(orig, multi));
     box.appendChild(btn);
   });
 
@@ -242,40 +277,22 @@ function renderQuiz() {
   show("quiz");
 }
 
-
-function onChoice(i, multi) {
+// 選択肢が押された（orig は元の番号）
+function onChoice(orig, multi) {
   if (answered) return;
   if (!multi) {
-    judge([i]);
+    judge([orig]);
     return;
   }
-  const idx = selection.indexOf(i);
-  if (idx >= 0) selection.splice(idx, 1); else selection.push(i);
-  [...$("choices").children].forEach((el, n) => {
-    el.classList.toggle("selected", selection.includes(n));
-  });
+  const idx = selection.indexOf(orig);
+  if (idx >= 0) selection.splice(idx, 1); else selection.push(orig);
+  for (const el of $("choices").children) {
+    el.classList.toggle("selected", selection.includes(Number(el.dataset.i)));
+  }
   $("btnAnswer").disabled = selection.length === 0;
 }
 
-// 累計成績を prev → next へ付け替える（null は「記録なし」）
-function recordStat(qid, prev, next) {
-  if (prev === next) return;
-  const s = stats[qid] || { c: 0, w: 0, a: 0, s: 0 };
-  if (s.a === undefined) s.a = 0;                 // 旧データの補完
-  if (s.s === undefined) s.s = 0;
-
-  if (prev === "correct") { s.c = Math.max(0, s.c - 1); s.s = Math.max(0, s.s - 1); }
-  if (prev === "assist")  s.a = Math.max(0, s.a - 1);
-  if (prev === "wrong")   s.w = Math.max(0, s.w - 1);
-
-  if (next === "correct") { s.c++; s.s++; }
-  if (next === "assist")  { s.a++; s.s = 0; }     // 参照した時点で連続は途切れる
-  if (next === "wrong")   { s.w++; s.s = 0; }
-
-  stats[qid] = s;
-  save(STATS_KEY, stats);
-}
-
+// picked は元の番号の配列（null はスキップ）
 function judge(picked) {
   const q = QMAP.get(session.order[session.idx]);
   const skipped = picked === null;
@@ -295,8 +312,9 @@ function judge(picked) {
   if (!skipped) recordStat(q.id, null, result);
   save(SESSION_KEY, session);
 
-  // 選択肢の色付け
-  [...$("choices").children].forEach((el, n) => {
+  // 選択肢の色付け（ボタンは元の番号を持っている）
+  for (const el of $("choices").children) {
+    const n = Number(el.dataset.i);
     el.disabled = true;
     el.classList.remove("selected");
     const isAns = q.answer.includes(n);
@@ -305,12 +323,12 @@ function judge(picked) {
     if (isAns) { el.classList.add("is-correct"); mark.textContent = "○"; }
     else if (isPick) { el.classList.add("is-wrong"); mark.textContent = "✕"; }
     else { el.classList.add("dimmed"); }
-  });
+  }
 
   refreshVerdict();
 
-  const ansLabel = q.answer.map(i => KEYS[i] || (i + 1)).join("・");
-  $("explainAnswer").textContent = "正解： " + ansLabel + "　" + q.answer.map(i => q.choices[i]).join(" ／ ");
+  const perm = choicePerm(session, session.idx, q.choices.length);
+  $("explainAnswer").textContent = "正解： " + choiceText(q, perm, q.answer);
   // 解説中の用語はクリックで説明が出るようにする
   $("explainText").innerHTML = glossHtml(q.exp);
 
@@ -496,6 +514,7 @@ function renderResult() {
     body.className = "review-body";
     body.hidden = true;
     const picked = session.picked[i];
+    const perm = choicePerm(session, i, q.choices.length);
     const flag = session.flags ? session.flags[i] : null;
     const flagText =
       flag === "help"   ? "コマンド表を参照して正解しました。自力で正解した問題とは分けて記録しています。" :
@@ -504,12 +523,11 @@ function renderResult() {
       (flagText ? '<div class="rline rflag">' + flagText + "</div>" : "") +
       '<div class="rline"><span class="rlabel">あなたの解答：</span>' +
         (picked && picked.length
-          ? '<span class="' + (res === "wrong" ? "rw" : "rc") + '">' +
-            esc(picked.map(n => (KEYS[n] || n + 1) + ". " + q.choices[n]).join(" ／ ")) + "</span>"
+          ? '<span class="' + (res === "wrong" ? "rw" : "rc") + '">' + esc(choiceText(q, perm, picked)) + "</span>"
           : '<span class="rlabel">（未回答）</span>') +
       "</div>" +
       '<div class="rline"><span class="rlabel">正解：</span><span class="rc">' +
-        esc(q.answer.map(n => (KEYS[n] || n + 1) + ". " + q.choices[n]).join(" ／ ")) +
+        esc(choiceText(q, perm, q.answer)) +
       "</span></div>" +
       '<div class="review-exp">' + glossHtml(q.exp) + "</div>";
 
@@ -544,6 +562,19 @@ bindChips("orderChips", "order", (v) => {
 $("optWeak").addEventListener("change", (e) => {
   config.weak = e.target.checked;
   save(CONFIG_KEY, config);
+});
+
+$("optShuffle").addEventListener("change", (e) => {
+  config.shuffle = e.target.checked;
+  save(CONFIG_KEY, config);
+});
+
+// 復習の期限が来た問題だけを解く
+$("btnStartDue").addEventListener("click", () => {
+  const ids = dueQuestions().map(q => q.id);
+  if (!ids.length) return;
+  startSession(ids);
+  renderQuiz();
 });
 
 $("btnCatAll").addEventListener("click", () => {

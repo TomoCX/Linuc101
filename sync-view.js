@@ -13,6 +13,7 @@ function normalizeSession(s) {
   s.results = fix(s.results);
   s.picked  = fix(s.picked);
   s.flags   = fix(s.flags);
+  s.perms   = fix(s.perms);       // 旧セッションは null → 元の順で表示される
   if (typeof s.idx !== "number" || s.idx < 0 || s.idx >= n) s.idx = 0;
   return s;
 }
@@ -20,7 +21,7 @@ function normalizeSession(s) {
 // 現在の状態を1つのオブジェクトにまとめる
 function buildPayload() {
   let answered = 0;
-  for (const v of Object.values(stats)) answered += v.c + v.w + (v.a || 0);
+  for (const id of Object.keys(stats)) answered += statTries(id);
   return {
     app: SYNC_APP,
     ver: 1,
@@ -141,6 +142,7 @@ function applyConfigToForm() {
   selectChip("orderChips", "order", config.order);
   selectChip("impChips",   "imp",   config.imp || 0);
   $("optWeak").checked = !!config.weak;
+  $("optShuffle").checked = config.shuffle !== false;
   $("optKeepHelp").checked = config.keepHelp !== false;
 }
 

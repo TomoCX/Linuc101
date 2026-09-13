@@ -1808,3 +1808,10 @@ mark.kp::before, code.kp::before {
 .ai-foot-btns { display: flex; gap: 8px; }
 .ai-foot-btns .btn:first-child { flex: 1 1 auto; }
 .ai-foot-btns .btn:last-child { flex: 0 0 auto; }
+
+/* ==================================================================
+   復習の期限が来た問題（ホーム）
+================================================================== */
+.due-card { border-color: rgba(255, 209, 102, .45); }
+.due-card h2 { display: flex; align-items: baseline; gap: 4px; }
+.due-count { color: var(--streak); font-size: 22px; }

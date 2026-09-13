@@ -137,13 +137,13 @@ function aiGlossText(text, max) {
   return hits.length ? "### 用語の意味\n" + hits.join("\n") : "";
 }
 
-// 選択肢の行（正解を伏せるかどうかを切り替えられる）
-function aiChoiceLines(q, picks, hideAnswer) {
-  return q.choices.map((c, i) => {
+// 選択肢の行を、画面と同じ並び・同じ記号で書く（正解を伏せるかどうかを切り替えられる）
+function aiChoiceLines(q, perm, picks, hideAnswer) {
+  return perm.map((orig, d) => {
     const mark = [];
-    if (!hideAnswer && q.answer.includes(i)) mark.push("正解");
-    if (picks && picks.includes(i)) mark.push("自分が選んだ");
-    return "  " + (KEYS[i] || i + 1) + ". " + c + (mark.length ? "　←" + mark.join("・") : "");
+    if (!hideAnswer && q.answer.includes(orig)) mark.push("正解");
+    if (picks && picks.includes(orig)) mark.push("自分が選んだ");
+    return "  " + (KEYS[d] || d + 1) + ". " + q.choices[orig] + (mark.length ? "　←" + mark.join("・") : "");
   }).join("\n");
 }
 
@@ -174,7 +174,7 @@ const AI_CONTEXT = {
         "　これまでの成績: " + RANK_LABEL[qRank(q.id)],
       "問題文: " + q.q,
       "選択肢:",
-      aiChoiceLines(q, session.picked[session.idx], hideAnswer)
+      aiChoiceLines(q, choicePerm(session, session.idx, q.choices.length), session.picked[session.idx], hideAnswer)
     ];
     if (done)                  now.push("結果: " + (AI_VERDICT[session.results[session.idx]] || "判定なし"));
     else if (aiCfg.withAnswer) now.push("結果: まだ解答していません。");

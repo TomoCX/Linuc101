@@ -28,6 +28,9 @@ function openHelp(open) {
   if (open) setTimeout(() => $("helpSearch").focus(), 220);
 }
 
+// コマンド表が開いているか
+function helpIsOpen() { return document.body.classList.contains("help-open"); }
+
 function highlight(text, q) {
   const safe = esc(text);
   if (!q) return safe;
@@ -183,26 +186,26 @@ function setRelatedCommands(q) {
 }
 
 $("helpTab").addEventListener("click", () => openHelp(true));
-$("btnHelpQuiz").addEventListener("click", () => openHelp(!document.body.classList.contains("help-open")));
+$("btnHelpQuiz").addEventListener("click", () => openHelp(!helpIsOpen()));
 $("optKeepHelp").addEventListener("change", (e) => {
   config.keepHelp = e.target.checked;
   save(CONFIG_KEY, config);
 });
-$("btnHelpTop").addEventListener("click", () => openHelp(!document.body.classList.contains("help-open")));
+$("btnHelpTop").addEventListener("click", () => openHelp(!helpIsOpen()));
 $("btnHelpClose").addEventListener("click", () => openHelp(false));
 $("helpBackdrop").addEventListener("click", () => openHelp(false));
 $("helpSearch").addEventListener("input", renderHelpBody);
 
 document.addEventListener("keydown", (e) => {
   if (e.ctrlKey || e.altKey || e.metaKey) return;
-  if (e.key === "Escape" && document.body.classList.contains("help-open")) {
+  if (e.key === "Escape" && helpIsOpen()) {
     openHelp(false);
     return;
   }
   if (isTyping(e.target)) return;
   if (e.key === "h" || e.key === "H" || e.key === "?" || e.key === "/") {
     e.preventDefault();
-    openHelp(!document.body.classList.contains("help-open"));
+    openHelp(!helpIsOpen());
   }
 });
 

@@ -53,12 +53,12 @@
 </div>
 
 <!-- ==================== 右側ヘルプパネル ==================== -->
-<button id="helpTab" title="コマンドオプション表を開く（H）">
-  <span class="helpTab-txt">コマンド表</span>
+<button id="helpTab" class="side-tab side-tab-right" title="コマンドオプション表を開く（H）">
+  <span>コマンド表</span>
 </button>
-<div id="helpBackdrop"></div>
+<div id="helpBackdrop" class="side-backdrop"></div>
 
-<aside id="helpPanel" aria-label="コマンドオプション早見表">
+<aside id="helpPanel" class="side-panel side-panel-right" aria-label="コマンドオプション早見表">
   <div class="help-head">
     <div class="help-title">
       <b>コマンドオプション早見表</b>
@@ -79,13 +79,13 @@
 </aside>
 
 <!-- ==================== Claudeにコピー ==================== -->
-<button id="aiTab" title="Claudeに貼る内容をコピーする（A）">
-  <span class="aiTab-txt">Claudeにコピー</span>
+<button id="aiTab" class="side-tab side-tab-left" title="Claudeに貼る内容をコピーする（A）">
+  <span>Claudeにコピー</span>
 </button>
-<div id="aiBackdrop"></div>
+<div id="aiBackdrop" class="side-backdrop"></div>
 <div id="aiToast" hidden></div>
 
-<aside id="aiPanel" aria-label="Claudeにコピー">
+<aside id="aiPanel" class="side-panel side-panel-left" aria-label="Claudeにコピー">
   <div class="ai-head">
     <div class="ai-title">
       <b>Claudeにコピー</b>
@@ -129,7 +129,6 @@
       <a class="btn btn-primary btn-lg" id="btnAiCopyOpen" role="button">コピーしてClaudeを開く</a>
       <button class="btn" id="btnAiCopy">コピーだけ</button>
     </div>
-    <div class="ai-copy-msg" id="aiCopyMsg" hidden></div>
   </div>
 </aside>
 

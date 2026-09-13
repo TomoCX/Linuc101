@@ -443,7 +443,7 @@ app.js             ホーム・出題・結果（最後に読み込み、末尾�
 - 状態（`session` `stats` `learned` `cardsLearned` `config` など）と保存処理は **core.js に一本化**しています。
 - `save()` は進捗に関わるキーなら変更時刻を記録し、`onProgressSaved`（sync-view.js が設定）を呼びます。自動同期はこのフック経由なので、core.js は同期の実装を知りません。
 - 文字列のエスケープは `esc()`、節キーの分解は `secTheme()` / `secTitle()`、チップ列は `bindChips()` / `selectChip()` に統一しています。
-- `build-single-file.ps1` は `index.html` が読み込むファイルを順に埋め込み、**取り込み漏れがあればエラーで止まります**。新しいJSを足したら、この一覧にも追加してください。
+- `build-single-file.ps1` は `index.html` が読み込むファイルを順に埋め込み、**取り込み漏れがあればエラーで止まります**。読み込むファイルの一覧は `index.html` から自動で読み取るので、新しいJSを足しても `index.html` に書くだけで済みます。
 
 ## かんたんロック（パスワード画面）
 

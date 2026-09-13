@@ -13,7 +13,10 @@ if (-not $dir) { $dir = (Get-Location).Path }
 $html  = [IO.File]::ReadAllText("$dir\index.html")
 $css   = [IO.File]::ReadAllText("$dir\style.css")
 $html = $html.Replace('<link rel="stylesheet" href="style.css">', "<style>`n$css`n</style>")
-foreach ($f in @('auth.js', 'core.js', 'questions.js', 'questions-sec.js', 'commands.js', 'notes.js', 'cards.js', 'keypoints.js', 'notes-view.js', 'cards-view.js', 'glossary.js', 'review-view.js', 'help-view.js', 'sync-view.js', 'ai-view.js', 'app.js')) {
+# index.html が読み込んでいるスクリプトを、書かれている順にすべて取り込む
+# （スクリプトを増やしても、このファイルを直す必要はない）
+$scripts = [regex]::Matches($html, '<script src="([^"]+)"></script>') | ForEach-Object { $_.Groups[1].Value }
+foreach ($f in $scripts) {
   $js = [IO.File]::ReadAllText("$dir\$f")
   $html = $html.Replace("<script src=""$f""></script>", "<script>`n$js`n</script>")
 }

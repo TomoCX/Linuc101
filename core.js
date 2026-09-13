@@ -109,6 +109,13 @@ function isTyping(el) {
 function secTheme(key) { const i = key.indexOf("/"); return i < 0 ? "00" : key.slice(0, i); }
 function secTitle(key) { const i = key.indexOf("/"); return i < 0 ? key : key.slice(i + 1); }
 
+/* ---------------- 問題の表示に使う道具 ---------------- */
+const KEYS = ["A", "B", "C", "D", "E", "F", "G", "H"];   // 選択肢の記号
+
+// 重要度の表示（3=必出／2=重要／1=補足）
+function impStars(n) { return "★★★".slice(0, n) + "☆☆☆".slice(0, 3 - n); }
+function impLabel(n) { return n === 3 ? "必出" : n === 2 ? "重要" : "補足"; }
+
 /* ---------------- 問題ごとの到達ランク ----------------
      3 ◎ 連続正解 … 直近2回以上つづけて自力で正解した
      2 ○ 正解     … 自力で正解した実績がある
@@ -145,12 +152,20 @@ function tally(s) {
   return { total, correct, assist, wrong, skip: total - correct - assist - wrong };
 }
 
+/* ---------------- 画面の変化を知らせる ----------------
+   画面の切り替えや出題内容の変化を、ほかの機能（Claudeにコピー など）へ伝える。
+   core.js が個々の機能を知らなくて済むように、受け取る側が登録する形にしている。
+------------------------------------------------------ */
+const viewListeners = [];
+function onViewChanged(fn) { viewListeners.push(fn); }
+function notifyViewChanged() { for (const fn of viewListeners) fn(); }
+
 /* ---------------- 画面切り替え ---------------- */
 const SCREENS = ["home", "quiz", "result", "notes", "cards"];
 
 function show(name) {
   for (const id of SCREENS) $("screen-" + id).hidden = (id !== name);
-  if (typeof aiRefresh === "function") aiRefresh();
+  notifyViewChanged();
   window.scrollTo(0, 0);
 }
 

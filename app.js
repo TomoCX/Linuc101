@@ -6,7 +6,6 @@
    ======================================================================= */
 
 const QMAP = new Map(QUESTIONS.map(q => [q.id, q]));
-const KEYS = ["A", "B", "C", "D", "E", "F", "G", "H"];
 
 /* ==================================================================
    ホーム画面
@@ -37,10 +36,6 @@ function pool() {
   const min = config.imp || 0;
   return QUESTIONS.filter(q => config.cats.includes(q.cat) && (q.imp || 2) >= min);
 }
-
-// 重要度の表示（3=必出／2=重要／1=補足）
-function impStars(n) { return "★★★".slice(0, n) + "☆☆☆".slice(0, 3 - n); }
-function impLabel(n) { return n === 3 ? "必出" : n === 2 ? "重要" : "補足"; }
 
 function updateCountHint() {
   const n = pool().length;
@@ -199,11 +194,11 @@ function renderQuiz() {
   rawOk = false;
   curSkipped = false;
   // 「次の問題でも開いたままにする」が外れていれば、ここで閉じる
-  if (config.keepHelp === false && document.body.classList.contains("help-open")) {
+  if (config.keepHelp === false && helpIsOpen()) {
     openHelp(false);
   }
   // 出題開始時点でコマンド表が開いていれば「参照した」扱いにする
-  helpUsed = document.body.classList.contains("help-open");
+  helpUsed = helpIsOpen();
   updateQuizHelpUI();
 
   $("qIndex").textContent = session.idx + 1;
@@ -217,7 +212,7 @@ function renderQuiz() {
 
   // これまでの到達ランク（解く前の状態）
   updateRankBadge(q.id);
-  if (typeof aiRefresh === "function") aiRefresh();
+  notifyViewChanged();
 
   $("questionText").textContent = q.q;
 
@@ -336,7 +331,7 @@ function refreshVerdict() {
 
   const qid = session.order[session.idx];
   updateRankBadge(qid);
-  if (typeof aiRefresh === "function") aiRefresh();
+  notifyViewChanged();
 
   if (res === "skip")         { v.textContent = "― 未回答"; v.className = "verdict sk"; }
   else if (res === "correct") {
@@ -400,7 +395,7 @@ function updateQuizHelpUI() {
 
   const btn = $("btnHelpQuiz");
   if (!btn) return;
-  const open = document.body.classList.contains("help-open");
+  const open = helpIsOpen();
   btn.textContent = open ? "コマンド表を閉じる"
     : (answered ? "コマンド表を開く" : "コマンド表を開く（参照扱い）");
   btn.title = (!open && !answered)

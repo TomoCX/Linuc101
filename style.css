@@ -1039,30 +1039,44 @@ a.btn { display: inline-block; text-decoration: none; text-align: center; }
   color: var(--muted);
 }
 
-/* 画面右端の開閉タブ */
-#helpTab {
+/* ==================================================================
+   左右から出るパネル（コマンド表・Claudeにコピー 共通）
+   開閉は body の help-open / ai-open で切り替える
+================================================================== */
+/* 画面の端の開閉タブ */
+.side-tab {
   position: fixed;
   top: 50%;
-  right: 0;
   transform: translateY(-50%);
   z-index: 45;
   padding: 16px 7px;
   border: 1px solid var(--line);
-  border-right: none;
-  border-radius: 10px 0 0 10px;
   background: var(--card);
-  color: var(--accent);
   font-family: inherit;
   font-size: 13px;
   letter-spacing: .12em;
   cursor: pointer;
   writing-mode: vertical-rl;
-  box-shadow: -3px 0 14px rgba(0, 0, 0, .35);
   transition: .15s;
 }
-#helpTab:hover { background: var(--card-2); padding-right: 11px; }
+.side-tab:hover { background: var(--card-2); }
+.side-tab-right {
+  right: 0;
+  border-right: none;
+  border-radius: 10px 0 0 10px;
+  box-shadow: -3px 0 14px rgba(0, 0, 0, .35);
+}
+.side-tab-right:hover { padding-right: 11px; }
+.side-tab-left {
+  left: 0;
+  border-left: none;
+  border-radius: 0 10px 10px 0;
+  box-shadow: 3px 0 14px rgba(0, 0, 0, .35);
+}
+.side-tab-left:hover { padding-left: 11px; }
 
-#helpBackdrop {
+/* パネルの後ろの暗幕 */
+.side-backdrop {
   position: fixed;
   inset: 0;
   z-index: 48;
@@ -1071,25 +1085,43 @@ a.btn { display: inline-block; text-decoration: none; text-align: center; }
   pointer-events: none;
   transition: opacity .2s;
 }
-body.help-open #helpBackdrop { opacity: 1; pointer-events: auto; }
 
-#helpPanel {
+/* パネル本体 */
+.side-panel {
   position: fixed;
-  top: 0; right: 0;
+  top: 0;
   z-index: 50;
-  width: min(var(--help-w), 94vw);
   height: 100vh;
   height: 100dvh;          /* iOS：アドレスバーの分だけ下が切れるのを防ぐ */
   display: flex;
   flex-direction: column;
   background: var(--bg-soft);
+  transition: transform .22s ease;
+}
+.side-panel-right {
+  right: 0;
   border-left: 1px solid var(--line);
   box-shadow: -10px 0 40px rgba(0, 0, 0, .45);
   transform: translateX(101%);
-  transition: transform .22s ease;
 }
-body.help-open #helpPanel { transform: none; }
-body.help-open #helpTab { display: none; }
+.side-panel-left {
+  left: 0;
+  border-right: 1px solid var(--line);
+  box-shadow: 10px 0 40px rgba(0, 0, 0, .45);
+  transform: translateX(-101%);
+}
+
+/* 開いているとき */
+body.help-open #helpBackdrop,
+body.ai-open #aiBackdrop { opacity: 1; pointer-events: auto; }
+body.help-open #helpPanel,
+body.ai-open #aiPanel { transform: none; }
+body.help-open #helpTab,
+body.ai-open #aiTab { display: none; }
+
+/* コマンド表（右）の色と幅 */
+#helpTab { color: var(--accent); }
+#helpPanel { width: min(var(--help-w), 94vw); }
 
 /* 十分に広い画面ではドッキングして本文と並べて表示 */
 @media (min-width: 1250px) {
@@ -1422,13 +1454,10 @@ body.help-open #helpTab { display: none; }
 /* ロック中は中身をすべて隠す */
 body.locked > .topbar,
 body.locked > main,
-body.locked > #helpPanel,
-body.locked > #helpTab,
-body.locked > #helpBackdrop,
+body.locked > .side-panel,
+body.locked > .side-tab,
+body.locked > .side-backdrop,
 body.locked > #aiToast,
-body.locked > #aiPanel,
-body.locked > #aiTab,
-body.locked > #aiBackdrop,
 body.locked > #glossPop { display: none !important; }
 
 body.locked > #lockScreen {
@@ -1603,57 +1632,9 @@ mark.kp::before, code.kp::before {
 }
 .btn-ai:hover { background: rgba(167, 139, 250, .12); }
 
-/* 画面左端の開閉タブ */
-#aiTab {
-  position: fixed;
-  top: 50%;
-  left: 0;
-  transform: translateY(-50%);
-  z-index: 45;
-  padding: 16px 7px;
-  border: 1px solid var(--line);
-  border-left: none;
-  border-radius: 0 10px 10px 0;
-  background: var(--card);
-  color: var(--ai);
-  font-family: inherit;
-  font-size: 13px;
-  letter-spacing: .12em;
-  cursor: pointer;
-  writing-mode: vertical-rl;
-  box-shadow: 3px 0 14px rgba(0, 0, 0, .35);
-  transition: .15s;
-}
-#aiTab:hover { background: var(--card-2); padding-left: 11px; }
-
-#aiBackdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 48;
-  background: rgba(0, 0, 0, .5);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .2s;
-}
-body.ai-open #aiBackdrop { opacity: 1; pointer-events: auto; }
-
-#aiPanel {
-  position: fixed;
-  top: 0; left: 0;
-  z-index: 50;
-  width: min(480px, 94vw);
-  height: 100vh;
-  height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-soft);
-  border-right: 1px solid var(--line);
-  box-shadow: 10px 0 40px rgba(0, 0, 0, .45);
-  transform: translateX(-101%);
-  transition: transform .22s ease;
-}
-body.ai-open #aiPanel { transform: none; }
-body.ai-open #aiTab { display: none; }
+/* パネルの色と幅（開閉のしくみは「左右から出るパネル」にまとめてある） */
+#aiTab { color: var(--ai); }
+#aiPanel { width: min(480px, 94vw); }
 
 /* ---------------- 見出し ---------------- */
 .ai-head {
@@ -1780,24 +1761,6 @@ body.ai-open #aiTab { display: none; }
   border-top: 1px solid var(--line);
   padding: 12px 16px calc(14px + env(safe-area-inset-bottom));
   background: var(--bg-soft);
-}
-.ai-foot > .btn { width: 100%; }
-.ai-copy-msg {
-  margin-top: 9px;
-  padding: 8px 11px;
-  border-radius: 8px;
-  font-size: 12.5px;
-  line-height: 1.65;
-}
-.ai-copy-msg.is-ok {
-  border: 1px solid rgba(63, 191, 127, .4);
-  background: rgba(63, 191, 127, .1);
-  color: var(--correct);
-}
-.ai-copy-msg.is-ng {
-  border: 1px solid rgba(240, 180, 41, .4);
-  background: rgba(240, 180, 41, .1);
-  color: var(--warn);
 }
 
 @media (max-width: 700px) {

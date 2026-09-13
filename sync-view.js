@@ -124,8 +124,8 @@ function applyPayload(data, silent) {
   syncMuted = false;
 
   applyConfigToForm();
-  if (typeof refreshLearnedUI === "function") refreshLearnedUI();
-  if (typeof refreshCardsUI === "function") refreshCardsUI();
+  refreshLearnedUI();
+  refreshCardsUI();
   renderHome();
   if (!silent) {
     syncMessage("読み込みました（" + fmtDate(data.savedAt) + " 時点、累計 " +

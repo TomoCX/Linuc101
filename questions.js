@@ -662,10 +662,10 @@ const QUESTIONS = [
   },
   {
     id: 74, cat: "1.04",
-    q: "openSUSE系ディストリビューションで用いられるパッケージ管理コマンドはどれか。",
-    choices: ["apt", "zypper", "dnf", "pacman"],
-    answer: [1],
-    exp: "zypper は openSUSE / SUSE Linux Enterprise のパッケージ管理コマンド（in=install＝導入、rm=remove＝削除、up=update＝更新、ref=refresh＝情報更新）。dnf は Fedora / RHEL 系、apt は Debian 系。"
+    q: "RHEL 8 / CentOS 8 以降で、yum の後継として使われるパッケージ管理コマンドはどれか。",
+    choices: ["dnf", "zypper", "apt", "pacman"],
+    answer: [0],
+    exp: "dnf（Dandified YUM）は yum の後継で、install / remove / update / search / info などのサブコマンドは yum とほぼ同じ（yum は dnf へのシンボリックリンクになっている）。zypper は openSUSE、apt は Debian 系、pacman は Arch Linux のコマンドで、いずれも101試験の中心ではない。"
   },
   {
     id: 75, cat: "1.04",

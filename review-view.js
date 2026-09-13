@@ -95,41 +95,34 @@ function recBuildItem(item) {
   const nC = (typeof CARDS !== "undefined") ? CARDS.filter(c => c.sec === item.key).length : 0;
   const sec = NOTE_BY_KEY.get(item.key);
 
-  let html =
-    '<div class="rec-head">' +
-      '<span class="rec-theme">' + secTheme(item.key) + "</span>" +
-      '<span class="rec-title">' + esc(item.title) + "</span>" +
-      '<span class="rec-rate ' + rateClass(item.rate, 50) + '">' + item.rate + "%</span>" +
-    "</div>" +
-    '<div class="rec-sub">' + item.sub + "</div>";
-
   // 習得状況のバー（連続正解／正解／つまずき／未着手）
-  if (item.bar) {
-    html +=
-      '<div class="rec-bar" title="連続正解 ' + item.streak + ' ・ 正解 ' + item.mastered + ' ・ つまずき ' + item.stumbled + ' ・ 未着手 ' + item.untouched + '">' +
-        '<span class="seg seg-streak" style="width:' + (item.streak / item.total * 100) + '%"></span>' +
-        '<span class="seg seg-correct" style="width:' + (item.mastered / item.total * 100) + '%"></span>' +
-        '<span class="seg seg-wrong" style="width:' + (item.stumbled / item.total * 100) + '%"></span>' +
-        '<span class="seg seg-skip" style="width:' + (item.untouched / item.total * 100) + '%"></span>' +
-      "</div>";
-  }
+  const seg = (cls, n) => raw(html`<span class="seg ${cls}" style="width:${n / item.total * 100}%"></span>`);
+  const bar = item.bar && raw(html`
+    <div class="rec-bar" title="連続正解 ${item.streak} ・ 正解 ${item.mastered} ・ つまずき ${item.stumbled} ・ 未着手 ${item.untouched}">
+      ${seg("seg-streak", item.streak)}${seg("seg-correct", item.mastered)}${seg("seg-wrong", item.stumbled)}${seg("seg-skip", item.untouched)}
+    </div>`);
 
-  if (sec) {
-    const fig = NOTE_FIGURES[sec.title] ? '<div class="note-fig">' + NOTE_FIGURES[sec.title] + "</div>" : "";
-    html +=
-      '<details class="rec-text">' +
-        "<summary>学習テキストを開く</summary>" +
-        '<div class="note-sec rec-note">' + fig + mdToHtml(sec.lines) + "</div>" +
-      "</details>";
-  }
+  const fig = sec && NOTE_FIGURES[sec.title];
+  const text = sec && raw(html`
+    <details class="rec-text">
+      <summary>学習テキストを開く</summary>
+      <div class="note-sec rec-note">${fig && raw(html`<div class="note-fig">${raw(fig)}</div>`)}${raw(mdToHtml(sec.lines))}</div>
+    </details>`);
 
-  html += '<div class="btn-row btn-row-tight rec-acts">';
-  if (nQ) html += '<button class="btn btn-mini rec-quiz">この項目を解く（' + nQ + '問）</button>';
-  if (nC) html += '<button class="btn btn-mini rec-cards">単語帳（' + nC + '枚）</button>';
-  if (sec) html += '<button class="btn btn-mini btn-ghost rec-note-open">ノートで開く</button>';
-  html += "</div>";
-
-  el.innerHTML = html;
+  el.innerHTML = html`
+    <div class="rec-head">
+      <span class="rec-theme">${secTheme(item.key)}</span>
+      <span class="rec-title">${item.title}</span>
+      <span class="rec-rate ${rateClass(item.rate, 50)}">${item.rate}%</span>
+    </div>
+    <div class="rec-sub">${raw(item.sub)}</div>
+    ${bar}
+    ${text}
+    <div class="btn-row btn-row-tight rec-acts">
+      ${nQ > 0 && raw(html`<button class="btn btn-mini rec-quiz">この項目を解く（${nQ}問）</button>`)}
+      ${nC > 0 && raw(html`<button class="btn btn-mini rec-cards">単語帳（${nC}枚）</button>`)}
+      ${sec && raw('<button class="btn btn-mini btn-ghost rec-note-open">ノートで開く</button>')}
+    </div>`;
   return el;
 }
 

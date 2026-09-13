@@ -330,20 +330,12 @@ function aiWriteClipboard(text, onFail) {
   return ok;
 }
 
-let aiToastTimer = null;
-
 // コピーの結果を画面下に知らせる。失敗したらパネルを開いて、手動で選べるようにする
 function aiNotify(ok, n, opening) {
-  const el = $("aiToast");
-  el.hidden = false;
-  el.className = ok ? "is-ok" : "is-ng";
-  el.textContent = ok
-    ? "コピーしました（" + n + "文字）　" + (opening ? "Claudeで" : "Claudeに") + "貼り付けて、下に質問を書いてください"
-    : "自動でコピーできませんでした。枠を長押し（PCはドラッグ）して選び、コピーしてください";
-  clearTimeout(aiToastTimer);
-  aiToastTimer = setTimeout(() => { el.hidden = true; }, ok ? 4500 : 9000);
-
-  if (!ok) {
+  if (ok) {
+    toast("コピーしました（" + n + "文字）　" + (opening ? "Claudeで" : "Claudeに") + "貼り付けて、下に質問を書いてください", "ok");
+  } else {
+    toast("自動でコピーできませんでした。枠を長押し（PCはドラッグ）して選び、コピーしてください", "ng", 9000);
     openAi(true);
     $("aiPreview").classList.add("is-pickable");
   }
@@ -495,7 +487,7 @@ function aiRenderSuggest() {
   const screen = aiCurrentScreen();
   const key = screen !== "quiz" ? screen : (answered || curSkipped) ? "quizDone" : "quizOpen";
   const list = AI_SUGGEST[key] || AI_SUGGEST.home;
-  $("aiSuggest").innerHTML = list.map(s => '<button class="chip ai-sug">' + esc(s) + "</button>").join("");
+  $("aiSuggest").innerHTML = html`${list.map(s => html`<button class="chip ai-sug">${s}</button>`).map(raw)}`;
 }
 
 function openAi(open) {

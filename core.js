@@ -71,6 +71,41 @@ function esc(s) {
   return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
 
+/* ---------------- HTMLの組み立て ----------------
+   html`<b>${値}</b>` と書くと、${} の中身は自動でエスケープされる。
+     ・すでにHTMLとして組み立て済みの文字列は raw(文字列) で包む
+     ・配列はつなげて出す（要素ごとにエスケープ／rawを判定）
+     ・null / undefined / false は何も出さない（条件付きの部品に使う）
+------------------------------------------------------ */
+class RawHtml { constructor(s) { this.s = String(s); } }
+function raw(s) { return s instanceof RawHtml ? s : new RawHtml(s); }
+
+function html(strings, ...vals) {
+  const piece = (v) => {
+    if (v instanceof RawHtml) return v.s;
+    if (Array.isArray(v)) return v.map(piece).join("");
+    if (v === null || v === undefined || v === false) return "";
+    return esc(v);
+  };
+  let out = "";
+  strings.forEach((str, i) => { out += str; if (i < vals.length) out += piece(vals[i]); });
+  return out;
+}
+
+/* ---------------- 画面下の短い通知 ---------------- */
+let toastTimer = null;
+
+// kind: "ok" | "ng" | 省略（ふつう）。ms を省略すると 4.5 秒で消える
+function toast(text, kind, ms) {
+  const el = $("toast");
+  if (!el) return;
+  el.hidden = false;
+  el.className = kind ? "is-" + kind : "";
+  el.textContent = text;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, ms || 4500);
+}
+
 function shuffle(arr) {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {

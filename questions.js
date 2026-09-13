@@ -202,7 +202,7 @@ const QUESTIONS = [
     q: "/tmp のようにディレクトリへ設定すると、ファイルの所有者と root 以外はそのファイルを削除できなくなる仕組みはどれか。",
     choices: ["SUID", "SGID", "スティッキービット", "umask"],
     answer: [2],
-    exp: "スティッキービット（sTicky＝粘着、chmod 1777 または chmod +t）を設定すると、書き込み権があってもファイル所有者以外は削除・名前変更ができない。ls -ld では末尾が t と表示される（drwxrwxrwt）。"
+    exp: "スティッキービット（sTicky＝粘着、chmod 1777 または chmod +t）を設定すると、書き込み権があってもファイル所有者以外は削除・名前変更ができない。ls -ld（-l＝long 詳細、-d＝directory ディレクトリ自体）では末尾が t と表示される（drwxrwxrwt）。"
   },
   {
     id: 23, cat: "1.02",
@@ -783,7 +783,7 @@ const QUESTIONS = [
     q: "/etc/fstab に記述されたファイルシステムのうち、未マウントのものをすべてマウントするコマンドはどれか。",
     choices: ["mount -a", "mount -o remount", "mount -t auto", "umount -a"],
     answer: [0],
-    exp: "mount -a（all＝すべて）は /etc/fstab の内容に従って（noauto（no auto＝自動しない）指定を除き）まとめてマウントする。fstab編集後の記述ミス確認にも使われる。-o remount（remount＝付け直す）はアンマウントせずオプションを変更する。"
+    exp: "mount -a（all＝すべて）は /etc/fstab の内容に従って（noauto（no auto＝自動しない）指定を除き）まとめてマウントする。fstab編集後の記述ミス確認にも使われる。-o（options＝オプション）remount（remount＝付け直す）はアンマウントせずオプションを変更する。"
   },
   {
     id: 88, cat: "1.05",

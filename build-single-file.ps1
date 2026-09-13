@@ -10,9 +10,17 @@
 $ErrorActionPreference = "Stop"
 $dir = $PSScriptRoot
 if (-not $dir) { $dir = (Get-Location).Path }
+
+# 先にデータの整合性を確認する（問題があればここで止まる）
+& "$dir\check-data.ps1"
+if ($LASTEXITCODE -ne 0) { throw "データチェックに失敗したためビルドを中止しました" }
+
 $html  = [IO.File]::ReadAllText("$dir\index.html")
 $css   = [IO.File]::ReadAllText("$dir\style.css")
 $html = $html.Replace('<link rel="stylesheet" href="style.css">', "<style>`n$css`n</style>")
+# manifest・アイコン・Service Worker は file:// では使えないので、1ファイル版からは取り除く
+$html = [regex]::Replace($html, '\s*<link rel="(manifest|apple-touch-icon)"[^>]*>', "")
+$html = [regex]::Replace($html, '(?s)\s*<script id="sw-register">.*?</script>', "")
 # index.html が読み込んでいるスクリプトを、書かれている順にすべて取り込む
 # （スクリプトを増やしても、このファイルを直す必要はない）
 $scripts = [regex]::Matches($html, '<script src="([^"]+)"></script>') | ForEach-Object { $_.Groups[1].Value }

@@ -310,7 +310,7 @@ function mdCells(line) {
 
 // 行の配列を HTML に変換する
 function mdToHtml(lines) {
-  let html = "";
+  let out = "";
   let i = 0;
 
   while (i < lines.length) {
@@ -322,7 +322,7 @@ function mdToHtml(lines) {
       i++;
       while (i < lines.length && !/^```/.test(lines[i])) { buf.push(lines[i]); i++; }
       i++;
-      html += "<pre><code>" + esc(buf.join("\n")) + "</code></pre>";
+      out += "<pre><code>" + esc(buf.join("\n")) + "</code></pre>";
       continue;
     }
 
@@ -332,7 +332,7 @@ function mdToHtml(lines) {
       i += 2;
       const rows = [];
       while (i < lines.length && /^\|/.test(lines[i])) { rows.push(mdCells(lines[i])); i++; }
-      html += '<div class="tbl-wrap"><table><thead><tr>' +
+      out += '<div class="tbl-wrap"><table><thead><tr>' +
         head.map(c => "<th>" + mdInline(c) + "</th>").join("") + "</tr></thead><tbody>" +
         rows.map(r => "<tr>" + r.map(c => "<td>" + mdInline(c) + "</td>").join("") + "</tr>").join("") +
         "</tbody></table></div>";
@@ -343,19 +343,19 @@ function mdToHtml(lines) {
     const h = line.match(/^(#{3,6})\s+(.+)$/);
     if (h) {
       const lv = h[1].length;
-      html += "<h" + lv + ">" + mdInline(h[2]) + "</h" + lv + ">";
+      out += "<h" + lv + ">" + mdInline(h[2]) + "</h" + lv + ">";
       i++;
       continue;
     }
 
     // 区切り線
-    if (/^\s*---+\s*$/.test(line)) { html += "<hr>"; i++; continue; }
+    if (/^\s*---+\s*$/.test(line)) { out += "<hr>"; i++; continue; }
 
     // 引用
     if (/^>\s?/.test(line)) {
       const buf = [];
       while (i < lines.length && /^>\s?/.test(lines[i])) { buf.push(lines[i].replace(/^>\s?/, "")); i++; }
-      html += "<blockquote>" + mdToHtml(buf) + "</blockquote>";
+      out += "<blockquote>" + mdToHtml(buf) + "</blockquote>";
       continue;
     }
 
@@ -363,22 +363,22 @@ function mdToHtml(lines) {
     if (/^\s*[-*]\s+/.test(line) || /^\s*\d+\.\s+/.test(line)) {
       const ordered = /^\s*\d+\.\s+/.test(line);
       const tag = ordered ? "ol" : "ul";
-      html += "<" + tag + ">";
+      out += "<" + tag + ">";
       let open = false;
       while (i < lines.length && (/^\s*[-*]\s+/.test(lines[i]) || /^\s*\d+\.\s+/.test(lines[i]))) {
         const indent = lines[i].match(/^\s*/)[0].length;
         const text = lines[i].replace(/^\s*(?:[-*]|\d+\.)\s+/, "");
         if (indent >= 2) {
-          if (!open) { html += "<ul>"; open = true; }
-          html += "<li>" + mdInline(text) + "</li>";
+          if (!open) { out += "<ul>"; open = true; }
+          out += "<li>" + mdInline(text) + "</li>";
         } else {
-          if (open) { html += "</ul>"; open = false; }
-          html += "<li>" + mdInline(text) + "</li>";
+          if (open) { out += "</ul>"; open = false; }
+          out += "<li>" + mdInline(text) + "</li>";
         }
         i++;
       }
-      if (open) html += "</ul>";
-      html += "</" + tag + ">";
+      if (open) out += "</ul>";
+      out += "</" + tag + ">";
       continue;
     }
 
@@ -394,10 +394,10 @@ function mdToHtml(lines) {
            !/^\s*---+\s*$/.test(lines[i])) {
       buf.push(lines[i]); i++;
     }
-    if (buf.length) html += "<p>" + buf.map(mdInline).join("<br>") + "</p>";
+    if (buf.length) out += "<p>" + buf.map(mdInline).join("<br>") + "</p>";
   }
 
-  return html;
+  return out;
 }
 
 /* ---------------- ノートの構造化 ---------------- */
@@ -484,17 +484,17 @@ function buildNotes() {
     const stars = noteStars(key);
     art.dataset.stars = stars;
 
-    const fig = NOTE_FIGURES[sec.title] ? '<div class="note-fig">' + NOTE_FIGURES[sec.title] + "</div>" : "";
-    art.innerHTML =
-      '<div class="note-sec-head">' +
-        '<h3><span class="note-star star-' + stars + '" title="重要度">' +
-          "★★★".slice(0, stars) + "</span>" + esc(sec.title) + "</h3>" +
-        '<div class="note-sec-act">' +
-          (n ? '<button class="btn btn-mini note-quiz" data-key="' + esc(key) + '">問題を解く（' + n + '問）</button>' : "") +
-          '<label class="learn-check"><input type="checkbox" class="learn-box" data-key="' + esc(key) + '"><span>覚えた</span></label>' +
-        "</div>" +
-      "</div>" +
-      fig + mdToHtml(sec.lines);
+    const fig = NOTE_FIGURES[sec.title];
+    art.innerHTML = html`
+      <div class="note-sec-head">
+        <h3><span class="note-star star-${stars}" title="重要度">${"★★★".slice(0, stars)}</span>${sec.title}</h3>
+        <div class="note-sec-act">
+          ${n > 0 && raw(html`<button class="btn btn-mini note-quiz" data-key="${key}">問題を解く（${n}問）</button>`)}
+          <label class="learn-check"><input type="checkbox" class="learn-box" data-key="${key}"><span>覚えた</span></label>
+        </div>
+      </div>
+      ${fig && raw(html`<div class="note-fig">${raw(fig)}</div>`)}
+      ${raw(mdToHtml(sec.lines))}`;
     body.appendChild(art);
   });
 
@@ -522,7 +522,7 @@ function updateLearnProgress() {
   const total = NOTE_SECTIONS.length;
   const done = NOTE_SECTIONS.filter(s => learned[noteKey(s)]).length;
   const pctDone = total ? Math.round((done / total) * 100) : 0;
-  el.innerHTML = "覚えた <b>" + done + "</b> / " + total + " 項目（" + pctDone + "%）";
+  el.innerHTML = html`覚えた <b>${done}</b> / ${total} 項目（${pctDone}%）`;
 }
 
 // ノートの節から、その範囲だけの問題を出題する
@@ -552,9 +552,8 @@ function buildNoteToc() {
     }
     const a = document.createElement("button");
     a.className = "toc-link" + (learned[noteKey(sec)] ? " is-learned" : "");
-    a.innerHTML = (learned[noteKey(sec)] ? "✓ " : "") +
-      '<span class="note-star star-' + noteStars(noteKey(sec)) + '">' +
-      "★★★".slice(0, noteStars(noteKey(sec))) + "</span>" + esc(sec.title);
+    const stars = noteStars(noteKey(sec));
+    a.innerHTML = html`${learned[noteKey(sec)] ? "✓ " : ""}<span class="note-star star-${stars}">${"★★★".slice(0, stars)}</span>${sec.title}`;
     a.addEventListener("click", () => {
       document.getElementById("noteToc").open = false;
       const el = document.getElementById("note-sec-" + idx);

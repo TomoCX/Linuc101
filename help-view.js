@@ -67,10 +67,10 @@ function makeCmdCard(cmd, rows, q, isRelated) {
 
   const head = document.createElement("button");
   head.className = "hcmd-head";
-  head.innerHTML =
-    '<span class="hcmd-name">' + highlight(cmd.name, q) + "</span>" +
-    '<span class="hcmd-desc">' + highlight(cmd.desc, q) + "</span>" +
-    '<span class="hcmd-arrow">' + (expanded ? "▲" : "▼") + "</span>";
+  head.innerHTML = html`
+    <span class="hcmd-name">${raw(highlight(cmd.name, q))}</span>
+    <span class="hcmd-desc">${raw(highlight(cmd.desc, q))}</span>
+    <span class="hcmd-arrow">${expanded ? "▲" : "▼"}</span>`;
   head.addEventListener("click", () => {
     const set = isRelated ? relatedCollapsed : helpOpenSet;
     // 関連コマンドは既定で開いているので、集合は「閉じたもの」を表す
@@ -86,16 +86,14 @@ function makeCmdCard(cmd, rows, q, isRelated) {
   if (expanded) {
     const inner = document.createElement("div");
     inner.className = "hcmd-body";
-    let html = cmd.ex ? '<div class="hcmd-ex">' + highlight(cmd.ex, q) + "</div>" : "";
-    for (const r of rows) {
-      html +=
-        '<div class="hrow">' +
-          '<span class="hopt">'  + highlight(r.opt,  q) + "</span>" +
-          '<span class="hmemo">' + highlight(r.memo, q) + "</span>" +
-          '<span class="hrole">' + highlight(r.role, q) + "</span>" +
-        "</div>";
-    }
-    inner.innerHTML = html;
+    inner.innerHTML = html`
+      ${cmd.ex && raw(html`<div class="hcmd-ex">${raw(highlight(cmd.ex, q))}</div>`)}
+      ${rows.map(r => raw(html`
+        <div class="hrow">
+          <span class="hopt">${raw(highlight(r.opt, q))}</span>
+          <span class="hmemo">${raw(highlight(r.memo, q))}</span>
+          <span class="hrole">${raw(highlight(r.role, q))}</span>
+        </div>`))}`;
     card.appendChild(inner);
   }
   return card;

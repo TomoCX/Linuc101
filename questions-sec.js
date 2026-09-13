@@ -200,7 +200,7 @@ const SECTION_QUESTIONS = [
     q: "shutdown コマンドで、システムを終了せずに警告メッセージだけを送るオプションはどれか。",
     choices: ["-k", "-c", "-H", "--no-wall"],
     answer: [0],
-    exp: "-k（実際には停止せずメッセージだけ）は予告の練習や通知に使う。-c（cancel＝取り消し）は予約したシャットダウンの取り消し、-H（halt＝停止）はシステムの終了、--no-wall はメッセージを表示しない。"
+    exp: "-k（実際には停止せずメッセージだけ）は予告の練習や通知に使う。-c（cancel＝取り消し）は予約したシャットダウンの取り消し、-H（halt＝停止）はシステムの終了、--no-wall（no wall＝全端末への通知なし）はメッセージを表示しない。"
   },
   {
     id: 110, cat: "1.01", sec: "1.01/シャットダウン（shutdown）",
@@ -305,7 +305,7 @@ const SECTION_QUESTIONS = [
       "startx を実行しておく"
     ],
     answer: [0],
-    exp: "サーバ側の /etc/ssh/sshd_config に X11Forwarding yes を記述して sshd を再起動し、クライアントから ssh -X で接続する。接続後は echo $DISPLAY で表示先を、xauth list で資格情報（MIT-MAGIC-COOKIE-1）を確認できる。"
+    exp: "サーバ側の /etc/ssh/sshd_config に X11Forwarding yes を記述して sshd を再起動し、クライアントから ssh -X（X11 forwarding＝X11転送）で接続する。接続後は echo $DISPLAY で表示先を、xauth list で資格情報（MIT-MAGIC-COOKIE-1）を確認できる。"
   },
 
   /* ===== 1.02 所有者と所有グループ ===== */
@@ -379,7 +379,7 @@ const SECTION_QUESTIONS = [
     q: "キーワードを部分的に含むマニュアルを検索する man のオプションと、同等のコマンドの組み合わせはどれか。",
     choices: ["-f ／ whatis", "-k ／ apropos", "-a ／ whatis", "-w ／ apropos"],
     answer: [1],
-    exp: "-k（keyword＝キーワード）は部分一致で検索し apropos と同等。-f はキーワードと完全に一致するものを表示し whatis と同等。-a（all）は全セクションを表示、-w（where）はマニュアルの格納場所を表示する。"
+    exp: "-k（keyword＝キーワード）は部分一致で検索し apropos と同等。-f（whatis＝何者か）はキーワードと完全に一致するものを表示し whatis と同等。-a（all）は全セクションを表示、-w（where）はマニュアルの格納場所を表示する。"
   },
   {
     id: 129, cat: "1.03", sec: "1.03/マニュアルの参照（man）",

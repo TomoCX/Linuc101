@@ -10,6 +10,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Linuc 101">
 <meta name="theme-color" content="#0f1420">
+<!-- ホーム画面に追加したときのアイコンと、オフラインでも開けるための設定 -->
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body class="locked">
@@ -83,7 +86,7 @@
   <span>Claudeにコピー</span>
 </button>
 <div id="aiBackdrop" class="side-backdrop"></div>
-<div id="aiToast" hidden></div>
+<div id="toast" hidden></div>
 
 <aside id="aiPanel" class="side-panel side-panel-left" aria-label="Claudeにコピー">
   <div class="ai-head">
@@ -600,5 +603,14 @@
 
 <!-- 本体（最後に読み込んで初期化する） -->
 <script src="app.js"></script>
+
+<!-- オフライン対応（https で開いたときだけ。file:// の1ファイル版では取り除かれる） -->
+<script id="sw-register">
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => { /* 使えなくても通常どおり動く */ });
+  });
+}
+</script>
 </body>
 </html>

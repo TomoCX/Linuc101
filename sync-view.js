@@ -284,6 +284,7 @@ async function gistPush(manual) {
   } catch (e) {
     gistState("保存できませんでした：" + e.message, "err");
     if (manual) syncMessage("保存に失敗しました：" + e.message, "ng");
+    else toast("GitHubへの保存に失敗しました：" + e.message + "　次に接続できたときに保存されます", "ng", 8000);
     return false;
   } finally {
     gistBusy = false;
@@ -321,6 +322,7 @@ async function gistSync(manual) {
   } catch (e) {
     gistState("同期できませんでした：" + e.message, "err");
     if (manual) syncMessage("同期に失敗しました：" + e.message, "ng");
+    else toast("GitHubとの同期に失敗しました：" + e.message + "　この端末の進捗はそのまま残っています", "ng", 8000);
   } finally {
     gistBusy = false;
   }

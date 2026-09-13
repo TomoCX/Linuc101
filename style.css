@@ -1457,7 +1457,7 @@ body.locked > main,
 body.locked > .side-panel,
 body.locked > .side-tab,
 body.locked > .side-backdrop,
-body.locked > #aiToast,
+body.locked > #toast,
 body.locked > #glossPop { display: none !important; }
 
 body.locked > #lockScreen {
@@ -1767,8 +1767,8 @@ mark.kp::before, code.kp::before {
   #aiPanel { width: 100vw; }
 }
 
-/* コピーしたときの通知（パネルを開かずにコピーしたとき） */
-#aiToast {
+/* 画面下の短い通知（コピー完了・同期の失敗など） */
+#toast {
   position: fixed;
   left: 50%;
   bottom: calc(24px + env(safe-area-inset-bottom));
@@ -1782,12 +1782,12 @@ mark.kp::before, code.kp::before {
   text-align: center;
   box-shadow: 0 8px 30px rgba(0, 0, 0, .5);
 }
-#aiToast.is-ok {
+#toast.is-ok {
   border: 1px solid rgba(63, 191, 127, .5);
   background: #17311f;
   color: var(--correct);
 }
-#aiToast.is-ng {
+#toast.is-ng {
   border: 1px solid rgba(240, 180, 41, .5);
   background: #322a15;
   color: var(--warn);
@@ -1815,3 +1815,23 @@ mark.kp::before, code.kp::before {
 .due-card { border-color: rgba(255, 209, 102, .45); }
 .due-card h2 { display: flex; align-items: baseline; gap: 4px; }
 .due-count { color: var(--streak); font-size: 22px; }
+
+/* ==================================================================
+   キーボード操作・動きを減らす設定への配慮
+================================================================== */
+/* キーボードで移動したときだけ、いまいる場所を枠で示す（マウスのクリックでは出さない） */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.choice:focus-visible, .btn:focus-visible, .chip:focus-visible { outline-offset: 3px; }
+
+/* OSで「視差効果を減らす」等を選んでいる人には、スライドや点滅を省く */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

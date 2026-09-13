@@ -17,11 +17,11 @@ function buildCatList() {
     const n = QUESTIONS.filter(q => q.cat === id).length;
     const label = document.createElement("label");
     label.className = "cat-item";
-    label.innerHTML =
-      '<input type="checkbox" value="' + id + '">' +
-      '<span class="cat-id">' + id + '</span>' +
-      '<span>' + name + '</span>' +
-      '<span class="cat-n">' + n + '問</span>';
+    label.innerHTML = html`
+      <input type="checkbox" value="${id}">
+      <span class="cat-id">${id}</span>
+      <span>${name}</span>
+      <span class="cat-n">${n}問</span>`;
     label.querySelector("input").checked = config.cats.includes(id);
     label.querySelector("input").addEventListener("change", () => {
       config.cats = [...list.querySelectorAll("input:checked")].map(i => i.value);
@@ -92,11 +92,11 @@ function renderLifetime() {
   const row = (label, t, c, a, k) => {
     const r = pct(c, t);
     const tr = document.createElement("tr");
-    tr.innerHTML =
-      "<td>" + label + "</td><td>" + t + "</td><td>" + c + "</td>" +
-      '<td class="cell-assist">' + a + "</td>" +
-      '<td class="cell-rank">' + k + "</td>" +
-      '<td class="' + (t ? rateClass(r) : "") + '">' + (t ? r + "%" : "-") + "</td>";
+    tr.innerHTML = html`
+      <td>${label}</td><td>${t}</td><td>${c}</td>
+      <td class="cell-assist">${a}</td>
+      <td class="cell-rank">${k}</td>
+      <td class="${t ? rateClass(r) : ""}">${t ? r + "%" : "-"}</td>`;
     body.appendChild(tr);
   };
 
@@ -109,7 +109,7 @@ function renderLifetime() {
       c += s.c; a += s.a; t += s.c + s.w + s.a;
     }
     tc += c; ta += a; tt += t; tk += k;
-    row('<span class="cat-id">' + id + "</span> " + name, t, c, a, k);
+    row(raw(html`<span class="cat-id">${id}</span> ${name}`), t, c, a, k);
   }
   row("合計", tt, tc, ta, tk);
 }
@@ -264,10 +264,10 @@ function renderQuiz() {
     const btn = document.createElement("button");
     btn.className = "choice";
     btn.dataset.i = orig;
-    btn.innerHTML =
-      '<span class="key">' + (KEYS[d] || d + 1) + "</span>" +
-      "<span>" + esc(q.choices[orig]) + "</span>" +
-      '<span class="mark"></span>';
+    btn.innerHTML = html`
+      <span class="key">${KEYS[d] || d + 1}</span>
+      <span>${q.choices[orig]}</span>
+      <span class="mark"></span>`;
     btn.addEventListener("click", () => onChoice(orig, multi));
     box.appendChild(btn);
   });
@@ -357,7 +357,7 @@ function refreshVerdict() {
     if (st >= STREAK_RANK) {
       // 2回以上つづけて自力で正解した問題は、正解の上のランクとして表示する
       v.className = "verdict rk";
-      v.innerHTML = "◎ 連続正解" + '<span class="verdict-tag">' + st + "回つづけて自力正解</span>";
+      v.innerHTML = html`◎ 連続正解<span class="verdict-tag">${st}回つづけて自力正解</span>`;
     } else {
       v.textContent = "○ 正解";
       v.className = "verdict ok";
@@ -365,7 +365,7 @@ function refreshVerdict() {
   }
   else if (res === "assist")  {
     v.className = "verdict as";
-    v.innerHTML = "○ 正解" + '<span class="verdict-tag">コマンド表を参照</span>';
+    v.innerHTML = html`○ 正解<span class="verdict-tag">コマンド表を参照</span>`;
   }
   else                        { v.textContent = "✕ 不正解"; v.className = "verdict ng"; }
 
@@ -464,7 +464,7 @@ function renderResult() {
   $("resultSub").textContent  = t.correct + " / " + t.total + " 問を自力で正解"
     + (t.assist ? "（ほかに参照 " + t.assist + " 問）" : "");
   $("resultStreak").hidden = streaked === 0;
-  $("resultStreak").innerHTML = "◎ うち <b>" + streaked + "問</b> が連続正解（2回以上つづけて自力正解）";
+  $("resultStreak").innerHTML = html`◎ うち <b>${streaked}問</b> が連続正解（2回以上つづけて自力正解）`;
   $("rTotal").textContent   = t.total;
   $("rCorrect").textContent = t.correct;
   $("rAssist").textContent  = t.assist;
@@ -475,11 +475,7 @@ function renderResult() {
   $("scoreCircle").style.borderColor = color;
   $("resultRate").style.color = color;
 
-  $("resultMsg").textContent =
-    rate >= 90 ? "素晴らしい。この調子で範囲を広げましょう。" :
-    rate >= 80 ? "合格ラインです。取りこぼした分野を復習しましょう。" :
-    rate >= 60 ? "あと一歩。間違えた問題の再挑戦がおすすめです。" :
-                 "解説を読み直して、同じ範囲をもう一周しましょう。";
+  $("resultMsg").textContent = resultComment(rate);
 
   // ノートの節から始めた場合は、戻る導線を出す
   $("btnBackToNote").hidden = !session.from;
@@ -494,50 +490,61 @@ function renderResult() {
 
   const list = $("reviewList");
   list.innerHTML = "";
-  session.order.forEach((qid, i) => {
-    const q = QMAP.get(qid);
-    const res = session.results[i];
-    const cls = res === "correct" ? "ok" : res === "assist" ? "as" : res === "wrong" ? "ng" : "sk";
-    const mark = (res === "correct" || res === "assist") ? "○" : res === "wrong" ? "✕" : "―";
-
-    const item = document.createElement("div");
-    item.className = "review-item " + cls;
-
-    const head = document.createElement("button");
-    head.className = "review-head";
-    head.innerHTML =
-      '<span class="rmark">' + mark + "</span>" +
-      '<span class="rno">' + (i + 1) + ".</span>" +
-      "<span>" + esc(q.q) + "</span>";
-
-    const body = document.createElement("div");
-    body.className = "review-body";
-    body.hidden = true;
-    const picked = session.picked[i];
-    const perm = choicePerm(session, i, q.choices.length);
-    const flag = session.flags ? session.flags[i] : null;
-    const flagText =
-      flag === "help"   ? "コマンド表を参照して正解しました。自力で正解した問題とは分けて記録しています。" :
-      flag === "manual" ? "自己申告により不正解として記録されています（選んだ選択肢自体は正解）。" : "";
-    body.innerHTML =
-      (flagText ? '<div class="rline rflag">' + flagText + "</div>" : "") +
-      '<div class="rline"><span class="rlabel">あなたの解答：</span>' +
-        (picked && picked.length
-          ? '<span class="' + (res === "wrong" ? "rw" : "rc") + '">' + esc(choiceText(q, perm, picked)) + "</span>"
-          : '<span class="rlabel">（未回答）</span>') +
-      "</div>" +
-      '<div class="rline"><span class="rlabel">正解：</span><span class="rc">' +
-        esc(choiceText(q, perm, q.answer)) +
-      "</span></div>" +
-      '<div class="review-exp">' + glossHtml(q.exp) + "</div>";
-
-    head.addEventListener("click", () => { body.hidden = !body.hidden; });
-    item.appendChild(head);
-    item.appendChild(body);
-    list.appendChild(item);
-  });
+  session.order.forEach((qid, i) => list.appendChild(buildReviewItem(i)));
 
   show("result");
+}
+
+// 正答率に応じたひとこと
+function resultComment(rate) {
+  if (rate >= 90) return "素晴らしい。この調子で範囲を広げましょう。";
+  if (rate >= 80) return "合格ラインです。取りこぼした分野を復習しましょう。";
+  if (rate >= 60) return "あと一歩。間違えた問題の再挑戦がおすすめです。";
+  return "解説を読み直して、同じ範囲をもう一周しましょう。";
+}
+
+const REVIEW_FLAG_TEXT = {
+  help:   "コマンド表を参照して正解しました。自力で正解した問題とは分けて記録しています。",
+  manual: "自己申告により不正解として記録されています（選んだ選択肢自体は正解）。"
+};
+
+// 解答一覧の1行（見出しを押すと解説が開く）
+function buildReviewItem(i) {
+  const q = QMAP.get(session.order[i]);
+  const res = session.results[i];
+  const cls  = res === "correct" ? "ok" : res === "assist" ? "as" : res === "wrong" ? "ng" : "sk";
+  const mark = (res === "correct" || res === "assist") ? "○" : res === "wrong" ? "✕" : "―";
+  const picked = session.picked[i];
+  const perm = choicePerm(session, i, q.choices.length);
+  const flagText = REVIEW_FLAG_TEXT[session.flags ? session.flags[i] : null];
+
+  const item = document.createElement("div");
+  item.className = "review-item " + cls;
+
+  const head = document.createElement("button");
+  head.className = "review-head";
+  head.innerHTML = html`
+    <span class="rmark">${mark}</span>
+    <span class="rno">${i + 1}.</span>
+    <span>${q.q}</span>`;
+
+  const body = document.createElement("div");
+  body.className = "review-body";
+  body.hidden = true;
+  body.innerHTML = html`
+    ${flagText && raw(html`<div class="rline rflag">${flagText}</div>`)}
+    <div class="rline"><span class="rlabel">あなたの解答：</span>${
+      picked && picked.length
+        ? raw(html`<span class="${res === "wrong" ? "rw" : "rc"}">${choiceText(q, perm, picked)}</span>`)
+        : raw('<span class="rlabel">（未回答）</span>')
+    }</div>
+    <div class="rline"><span class="rlabel">正解：</span><span class="rc">${choiceText(q, perm, q.answer)}</span></div>
+    <div class="review-exp">${raw(glossHtml(q.exp))}</div>`;
+
+  head.addEventListener("click", () => { body.hidden = !body.hidden; });
+  item.appendChild(head);
+  item.appendChild(body);
+  return item;
 }
 
 /* ==================================================================

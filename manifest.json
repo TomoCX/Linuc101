@@ -1,0 +1,16 @@
+{
+  "name": "Linuc レベル1 101 問題演習",
+  "short_name": "Linuc 101",
+  "description": "LinuC レベル1 101試験の問題演習・暗記ノート・単語帳",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "ja",
+  "background_color": "#0f1420",
+  "theme_color": "#0f1420",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

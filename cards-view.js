@@ -82,7 +82,7 @@ function updateCardProgress() {
   const done = target.filter(c => cardsLearned[c.id]).length;
   const p = target.length ? Math.round((done / target.length) * 100) : 0;
   document.getElementById("cardProgress").innerHTML =
-    "覚えた <b>" + done + "</b> / " + target.length + " 枚（" + p + "%）";
+    html`覚えた <b>${done}</b> / ${target.length} 枚（${p}%）`;
 }
 
 function renderCard() {
@@ -124,13 +124,14 @@ function renderCardList() {
     }
     const row = document.createElement("div");
     row.className = "card-row" + (cardsLearned[c.id] ? " is-learned" : "");
-    row.innerHTML =
-      '<label class="learn-check card-row-check"><input type="checkbox" class="card-box" data-id="' + c.id + '"' +
-        (cardsLearned[c.id] ? " checked" : "") + '><span>覚えた</span></label>' +
-      '<div class="card-row-body">' +
-        '<div class="card-row-term">' + esc(c.term) + "</div>" +
-        '<div class="card-row-mean">' + esc(c.mean) + "</div>" +
-      "</div>";
+    row.innerHTML = html`
+      <label class="learn-check card-row-check">
+        <input type="checkbox" class="card-box" data-id="${c.id}" ${cardsLearned[c.id] && raw("checked")}><span>覚えた</span>
+      </label>
+      <div class="card-row-body">
+        <div class="card-row-term">${c.term}</div>
+        <div class="card-row-mean">${c.mean}</div>
+      </div>`;
     box.appendChild(row);
   });
 }

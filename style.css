@@ -574,8 +574,33 @@ a.btn { display: inline-block; text-decoration: none; text-align: center; }
   color: var(--muted);
 }
 .learn-bar b { color: var(--correct); font-size: 15px; }
+.learn-bar b.n-weak { color: var(--wrong); }
+.learn-bar b.n-unseen { color: var(--text); }
+.learn-sub { margin-left: 12px; }
 .learn-filter { font-size: 12.5px; }
 .toc-link.is-learned { color: var(--correct); }
+.toc-link.is-weak { color: var(--wrong); }
+
+/* 苦手な項目 */
+.weak-check input { accent-color: var(--wrong); }
+.weak-check:hover { border-color: var(--wrong); }
+.note-sec.is-weak { border-color: rgba(239, 95, 107, .45); }
+.note-sec.is-weak .note-sec-head { border-bottom-color: rgba(239, 95, 107, .35); }
+.note-sec.is-weak h3::before {
+  content: "△ ";
+  color: var(--wrong);
+}
+.note-sec.is-weak .weak-check {
+  border-color: rgba(239, 95, 107, .5);
+  background: rgba(239, 95, 107, .12);
+  color: var(--wrong);
+}
+
+/* 覚えた／苦手／未確認の絞り込み */
+.status-filter { gap: 6px; }
+.status-filter .chip { padding-top: 4px; padding-bottom: 4px; font-size: 12.5px; }
+.status-filter .chip[data-status="learned"].is-on { border-color: var(--correct); background: rgba(63, 191, 127, .18); color: var(--correct); }
+.status-filter .chip[data-status="weak"].is-on    { border-color: var(--wrong);   background: rgba(239, 95, 107, .18); color: var(--wrong); }
 .note-sec h4 { margin: 20px 0 8px; font-size: 14px; color: var(--warn); }
 .note-sec h5 { margin: 16px 0 6px; font-size: 13px; color: var(--muted); }
 .note-sec p  { margin: 10px 0; font-size: 14.5px; line-height: 1.9; }

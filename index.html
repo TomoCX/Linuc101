@@ -453,11 +453,13 @@
     <div class="chip-row" id="noteThemes"></div>
     <div class="learn-bar">
       <span id="learnProgress"></span>
+      <div class="chip-row status-filter" id="noteStatusFilter" role="group" aria-label="状態で絞り込む">
+        <button type="button" class="chip is-on" data-status="">すべて</button>
+        <button type="button" class="chip" data-status="learned">覚えた</button>
+        <button type="button" class="chip" data-status="weak">苦手</button>
+        <button type="button" class="chip" data-status="unseen">未確認</button>
+      </div>
       <div class="note-toggles">
-        <label class="check-inline learn-filter">
-          <input type="checkbox" id="optOnlyUnlearned">
-          <span>覚えていない項目だけ</span>
-        </label>
         <label class="check-inline learn-filter">
           <input type="checkbox" id="optOnlyTopStars">
           <span>★★★ の項目だけ</span>

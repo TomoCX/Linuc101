@@ -436,7 +436,7 @@ function parseNotes(md) {
 
 const NOTE_SECTIONS = parseNotes(typeof NOTES_MD === "string" ? NOTES_MD : "");
 let noteTheme = null;          // 絞り込み中の主題（null = すべて）
-let onlyUnlearned = false;     // 覚えていない項目だけ表示するか
+let noteStatusFilter = "";     // 状態での絞り込み（"" = すべて / learned / weak / unseen）
 let showKeyPoints  = true;     // 重要語に印を付けるか
 let onlyTopStars   = false;    // ★★★の節だけ表示するか
 let notesBuilt = false;
@@ -447,6 +447,18 @@ function noteThemeLabel(t) {
 
 // 節のキー（"主題/見出し"）。問題データの sec と対応する
 function noteKey(sec) { return sec.theme + "/" + sec.title; }
+
+// 節の状態：覚えた / 苦手 / 未確認（どちらのチェックも付いていない）
+function noteStatus(key) {
+  if (learned[key]) return "learned";
+  if (noteWeak[key]) return "weak";
+  return "unseen";
+}
+const NOTE_STATUS_MARK = { learned: "✓ ", weak: "△ ", unseen: "" };
+
+function noteStatusOk(key) {
+  return !noteStatusFilter || noteStatus(key) === noteStatusFilter;
+}
 
 // 節の重要度（3=最重要 / 2=重要 / 1=補足）
 function noteStars(key) { return NOTE_STARS[key] || 2; }
@@ -491,6 +503,7 @@ function buildNotes() {
         <div class="note-sec-act">
           ${n > 0 && raw(html`<button class="btn btn-mini note-quiz" data-key="${key}">問題を解く（${n}問）</button>`)}
           <label class="learn-check"><input type="checkbox" class="learn-box" data-key="${key}"><span>覚えた</span></label>
+          <label class="learn-check weak-check"><input type="checkbox" class="weak-box" data-key="${key}"><span>苦手</span></label>
         </div>
       </div>
       ${fig && raw(html`<div class="note-fig">${raw(fig)}</div>`)}
@@ -504,25 +517,49 @@ function buildNotes() {
   notesBuilt = true;
 }
 
-// 「覚えた」の状態を画面に反映する（同期で取り込んだときにも呼ばれる）
+// 1つの節のチェックと色を、保存されている状態に合わせる
+function paintNoteSec(el) {
+  const st = noteStatus(el.dataset.key);
+  el.querySelector(".learn-box").checked = st === "learned";
+  el.querySelector(".weak-box").checked  = st === "weak";
+  el.classList.toggle("is-learned", st === "learned");
+  el.classList.toggle("is-weak", st === "weak");
+}
+
+// 「覚えた／苦手」の状態を画面に反映する（同期で取り込んだときにも呼ばれる）
 function refreshLearnedUI() {
-  document.querySelectorAll("#notesBody .note-sec").forEach(el => {
-    const on = !!learned[el.dataset.key];
-    const box = el.querySelector(".learn-box");
-    if (box) box.checked = on;
-    el.classList.toggle("is-learned", on);
-  });
+  document.querySelectorAll("#notesBody .note-sec").forEach(paintNoteSec);
   updateLearnProgress();
   buildNoteToc();
+  if (notesBuilt) filterNotes();
 }
 
 function updateLearnProgress() {
   const el = document.getElementById("learnProgress");
   if (!el) return;
+  const n = { learned: 0, weak: 0, unseen: 0 };
+  NOTE_SECTIONS.forEach(s => { n[noteStatus(noteKey(s))]++; });
   const total = NOTE_SECTIONS.length;
-  const done = NOTE_SECTIONS.filter(s => learned[noteKey(s)]).length;
-  const pctDone = total ? Math.round((done / total) * 100) : 0;
-  el.innerHTML = html`覚えた <b>${done}</b> / ${total} 項目（${pctDone}%）`;
+  const pctDone = total ? Math.round((n.learned / total) * 100) : 0;
+  el.innerHTML = html`覚えた <b>${n.learned}</b> / ${total} 項目（${pctDone}%）` +
+    html`<span class="learn-sub">苦手 <b class="n-weak">${n.weak}</b>・未確認 <b class="n-unseen">${n.unseen}</b></span>`;
+}
+
+// 絞り込みボタンの表示（件数つき）
+function renderStatusFilter() {
+  const n = { "": 0, learned: 0, weak: 0, unseen: 0 };
+  NOTE_SECTIONS.forEach(s => {
+    if (noteTheme && s.theme !== noteTheme) return;
+    n[""]++;
+    n[noteStatus(noteKey(s))]++;
+  });
+  const label = { "": "すべて", learned: "覚えた", weak: "苦手", unseen: "未確認" };
+  document.querySelectorAll("#noteStatusFilter .chip").forEach(b => {
+    const st = b.dataset.status;
+    b.classList.toggle("is-on", st === noteStatusFilter);
+    b.setAttribute("aria-pressed", st === noteStatusFilter);
+    b.textContent = label[st] + " " + n[st];
+  });
 }
 
 // ノートの節から、その範囲だけの問題を出題する
@@ -541,8 +578,9 @@ function buildNoteToc() {
   let lastTheme = null;
   NOTE_SECTIONS.forEach((sec, idx) => {
     if (noteTheme && sec.theme !== noteTheme) return;
-    if (onlyUnlearned && learned[noteKey(sec)]) return;
-    if (onlyTopStars && noteStars(noteKey(sec)) !== 3) return;
+    const key = noteKey(sec);
+    if (!noteStatusOk(key)) return;
+    if (onlyTopStars && noteStars(key) !== 3) return;
     if (sec.theme !== lastTheme) {
       const h = document.createElement("div");
       h.className = "toc-theme";
@@ -551,9 +589,10 @@ function buildNoteToc() {
       lastTheme = sec.theme;
     }
     const a = document.createElement("button");
-    a.className = "toc-link" + (learned[noteKey(sec)] ? " is-learned" : "");
-    const stars = noteStars(noteKey(sec));
-    a.innerHTML = html`${learned[noteKey(sec)] ? "✓ " : ""}<span class="note-star star-${stars}">${"★★★".slice(0, stars)}</span>${sec.title}`;
+    const st = noteStatus(key);
+    a.className = "toc-link is-" + st;
+    const stars = noteStars(key);
+    a.innerHTML = html`${NOTE_STATUS_MARK[st]}<span class="note-star star-${stars}">${"★★★".slice(0, stars)}</span>${sec.title}`;
     a.addEventListener("click", () => {
       document.getElementById("noteToc").open = false;
       const el = document.getElementById("note-sec-" + idx);
@@ -570,7 +609,7 @@ function filterNotes() {
   document.querySelectorAll("#notesBody .note-sec").forEach(el => {
     const themeOk = !noteTheme || el.dataset.theme === noteTheme;
     const textOk = !q || el.textContent.toLowerCase().includes(q);
-    const learnOk = !onlyUnlearned || !learned[el.dataset.key];
+    const learnOk = noteStatusOk(el.dataset.key);
     const starOk  = !onlyTopStars || el.dataset.stars === "3";
     const show = themeOk && textOk && learnOk && starOk;
     el.hidden = !show;
@@ -586,6 +625,7 @@ function filterNotes() {
 
   const empty = document.getElementById("noteEmpty");
   empty.hidden = hit > 0;
+  renderStatusFilter();
 }
 
 function renderNoteThemes() {
@@ -647,10 +687,14 @@ function renderNoteJump() {
 document.getElementById("btnNotesTop").addEventListener("click", () => showNotes());
 document.getElementById("btnNotesHome").addEventListener("click", () => renderHome());
 document.getElementById("noteSearch").addEventListener("input", filterNotes);
-document.getElementById("optOnlyUnlearned").addEventListener("change", (e) => {
-  onlyUnlearned = e.target.checked;
+document.getElementById("noteStatusFilter").addEventListener("click", (e) => {
+  const b = e.target.closest(".chip");
+  if (!b) return;
+  // 選択中のボタンをもう一度押したら「すべて」に戻す
+  noteStatusFilter = (noteStatusFilter === b.dataset.status) ? "" : b.dataset.status;
   buildNoteToc();
   filterNotes();
+  window.scrollTo(0, 0);
 });
 document.getElementById("optOnlyTopStars").addEventListener("change", (e) => {
   onlyTopStars = e.target.checked;
@@ -667,14 +711,19 @@ renderNoteJump();
 
 /* ノート本文のチェックボックスと出題ボタン（委譲で一度だけ登録する） */
 document.getElementById("notesBody").addEventListener("change", (e) => {
-  const box = e.target.closest(".learn-box");
+  const box = e.target.closest(".learn-box, .weak-box");
   if (!box) return;
   const key = box.dataset.key;
-  if (box.checked) learned[key] = true; else delete learned[key];
+  const isWeak = box.classList.contains("weak-box");
+  const [mine, other] = isWeak ? [noteWeak, learned] : [learned, noteWeak];
+  // 覚えた と 苦手 は同時に付けない。片方を付けたらもう片方は外す
+  if (box.checked) { mine[key] = true; delete other[key]; } else delete mine[key];
+  save(WEAK_KEY, noteWeak);
   save(LEARNED_KEY, learned);
-  box.closest(".note-sec").classList.toggle("is-learned", box.checked);
+  paintNoteSec(box.closest(".note-sec"));
   updateLearnProgress();
-  buildNoteToc();          // 目次の ✓ 表示も更新する
+  buildNoteToc();          // 目次の印も更新する
+  renderStatusFilter();    // 絞り込み中でも節はすぐには隠さない（押し間違えを直せるように）
 });
 document.getElementById("notesBody").addEventListener("click", (e) => {
   const btn = e.target.closest(".note-quiz");

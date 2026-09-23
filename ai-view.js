@@ -220,7 +220,7 @@ const AI_CONTEXT = {
       label: sec ? "ノート：" + secTitle(sec) : "暗記ノート",
       now: [
         "暗記ノートを読んでいます。",
-        sec ? "いま開いている節: " + sec + (learned[sec] ? "（覚えたにチェック済み）" : "")
+        sec ? "いま開いている節: " + sec + (learned[sec] ? "（覚えたにチェック済み）" : noteWeak[sec] ? "（苦手にチェック済み）" : "")
             : "特定の節ではなく一覧を見ています。"
       ],
       ref: [], sec

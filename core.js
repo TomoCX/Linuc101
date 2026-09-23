@@ -10,13 +10,14 @@ const SESSION_KEY = "linuc101.session.v1";   // 進行中のセッション
 const STATS_KEY   = "linuc101.stats.v1";     // 累計成績
 const CONFIG_KEY  = "linuc101.config.v1";    // 出題設定
 const LEARNED_KEY = "linuc101.learned.v1";   // ノートの「覚えた」チェック
+const WEAK_KEY    = "linuc101.noteWeak.v1";  // ノートの「苦手」チェック
 const CARDS_KEY   = "linuc101.cards.v1";     // 単語帳の「覚えた」チェック
 const STAMP_KEY   = "linuc101.stamp.v1";     // 進捗を最後に変更した時刻
 const GIST_KEY    = "linuc101.gist.v1";      // 自動同期の設定（トークン等）
 const HELP_OPEN_KEY = "linuc101.help.v1";    // コマンド表を開いているか
 
 // 進捗として同期・バックアップの対象になるキー
-const SYNCED_KEYS = [SESSION_KEY, STATS_KEY, CONFIG_KEY, LEARNED_KEY, CARDS_KEY];
+const SYNCED_KEYS = [SESSION_KEY, STATS_KEY, CONFIG_KEY, LEARNED_KEY, WEAK_KEY, CARDS_KEY];
 
 /* ---------------- 保存と読み込み ---------------- */
 function load(key, fallback) {
@@ -56,6 +57,7 @@ function save(key, val) {
 let session      = load(SESSION_KEY, null);
 let stats        = load(STATS_KEY, {});      // { 問題ID: {c:自力正解, w:不正解, a:参照正解} }
 let learned      = load(LEARNED_KEY, {});    // { "主題/見出し": true }
+let noteWeak     = load(WEAK_KEY, {});       // { "主題/見出し": true }（覚えた と同時には付かない）
 let cardsLearned = load(CARDS_KEY, {});      // { カードID: true }
 let lastChangeAt = load(STAMP_KEY, 0);       // 同期の新旧判定に使う
 let gist         = load(GIST_KEY, { token: "", id: "", auto: true, lastSyncAt: 0 });

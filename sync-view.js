@@ -32,6 +32,7 @@ function buildPayload() {
     stats: stats,
     config: config,
     learned: learned,
+    weak: noteWeak,
     cards: cardsLearned
   };
 }
@@ -102,6 +103,12 @@ function applyPayload(data, silent) {
 
   learned = (data.learned && typeof data.learned === "object") ? data.learned : {};
   save(LEARNED_KEY, learned);
+
+  // 苦手チェックを持たない古いデータからは、この端末の苦手を消さない
+  if (data.weak && typeof data.weak === "object") {
+    noteWeak = data.weak;
+    save(WEAK_KEY, noteWeak);
+  }
 
   cardsLearned = (data.cards && typeof data.cards === "object") ? data.cards : {};
   save(CARDS_KEY, cardsLearned);

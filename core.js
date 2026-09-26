@@ -290,6 +290,14 @@ function show(name) {
   window.scrollTo(0, 0);
 }
 
+// 上部バーの高さを CSS に渡す（ノッチの有無や文字の折り返しで変わるため、実測する）
+// ノート・単語帳の見出しは、この高さの分だけ下に貼り付く
+if (window.ResizeObserver) {
+  new ResizeObserver(([e]) => {
+    document.documentElement.style.setProperty("--topbar-h", Math.ceil(e.target.getBoundingClientRect().height) + "px");
+  }).observe(document.querySelector(".topbar"));
+}
+
 /* ---------------- チップ（1つだけ選ぶボタン列） ---------------- */
 // data 属性の値を受け取るコールバックを登録する
 function bindChips(boxId, attr, onPick) {

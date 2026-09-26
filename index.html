@@ -427,7 +427,7 @@
       <div class="fc-sec" id="fcSec"></div>
       <div class="fc-term" id="fcTerm"></div>
       <div class="fc-mean" id="fcMean" hidden></div>
-      <div class="fc-tap" id="fcTap">タップまたはスペースキーで意味を表示</div>
+      <div class="fc-tap" id="fcTap">タップ<span class="kbd-hint">またはスペースキー</span>で意味を表示</div>
     </div>
     <div class="fc-bar">
       <button class="btn" id="btnCardPrev">← 前へ</button>
@@ -435,7 +435,7 @@
       <button class="btn btn-primary" id="btnCardNext">次へ →</button>
     </div>
     <div class="fc-pos" id="fcPos"></div>
-    <div class="hint fc-hint">← → で移動 ／ スペースで意味の表示切替 ／ Enter で「覚えた」</div>
+    <div class="hint fc-hint kbd-hint">← → で移動 ／ スペースで意味の表示切替 ／ Enter で「覚えた」</div>
   </div>
 
   <!-- 一覧表示 -->
@@ -450,6 +450,10 @@
       <input type="search" id="noteSearch" placeholder="ノート内を検索（例: SUID, umask, ランレベル）" autocomplete="off">
       <button class="btn btn-ghost" id="btnNotesHome">ホームへ</button>
     </div>
+    <div class="notes-drawers">
+    <!-- 狭い画面では折りたたんで、本文を読む場所を広く取る（広い画面では常に開いたまま） -->
+    <details class="notes-filter" id="noteFilter" open>
+    <summary>絞り込み<span id="noteFilterSum"></span></summary>
     <div class="chip-row" id="noteThemes"></div>
     <div class="learn-bar">
       <span id="learnProgress"></span>
@@ -470,10 +474,12 @@
         </label>
       </div>
     </div>
+    </details>
     <details class="notes-toc" id="noteToc">
       <summary>目次</summary>
       <div id="noteTocList"></div>
     </details>
+    </div>
   </div>
   <div class="notes-body" id="notesBody"></div>
   <div class="help-empty" id="noteEmpty" hidden>該当する内容が見つかりませんでした。</div>
@@ -531,7 +537,7 @@
         <button class="btn btn-primary btn-lg" id="btnNext">次の問題へ</button>
         <button class="btn btn-downgrade" id="btnDowngrade" hidden>不正解にする</button>
       </div>
-      <div class="hint">Enter / スペースでも次へ進めます</div>
+      <div class="hint kbd-hint">Enter / スペースでも次へ進めます</div>
     </div>
   </div>
 

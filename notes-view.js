@@ -560,6 +560,27 @@ function renderStatusFilter() {
     b.setAttribute("aria-pressed", st === noteStatusFilter);
     b.textContent = label[st] + " " + n[st];
   });
+
+  // 折りたたんだときの見出しに、いまの絞り込みを出す
+  const on = [
+    noteTheme && noteThemeLabel(noteTheme),
+    noteStatusFilter && label[noteStatusFilter],
+    onlyTopStars && "★★★"
+  ].filter(Boolean);
+  $("noteFilterSum").textContent = on.length ? "：" + on.join("・") : "";
+}
+
+// 絞り込み欄は、狭い画面では最初は閉じておく（広い画面では常に開く）
+const NOTE_NARROW = window.matchMedia("(max-width: 560px)");
+function fitNoteFilter() { $("noteFilter").open = !NOTE_NARROW.matches; }
+fitNoteFilter();
+NOTE_NARROW.addEventListener("change", fitNoteFilter);
+
+// 見出しの高さを CSS に渡す（目次から飛んだとき、節の頭が見出しに隠れないように）
+if (window.ResizeObserver) {
+  new ResizeObserver(([e]) => {
+    if (e.contentRect.height) document.documentElement.style.setProperty("--notes-head-h", Math.ceil(e.target.getBoundingClientRect().height) + "px");
+  }).observe(document.querySelector("#screen-notes .notes-head"));
 }
 
 // ノートの節から、その範囲だけの問題を出題する
@@ -596,7 +617,12 @@ function buildNoteToc() {
     a.addEventListener("click", () => {
       document.getElementById("noteToc").open = false;
       const el = document.getElementById("note-sec-" + idx);
-      if (el) el.scrollIntoView({ block: "start", behavior: "smooth" });
+      if (!el) return;
+      // 目次を閉じた後の見出しの高さで位置を決める（scroll-margin は閉じる前の高さのままのことがある）
+      const cover = document.querySelector(".topbar").offsetHeight +
+                    document.querySelector("#screen-notes .notes-head").offsetHeight;
+      const y = el.getBoundingClientRect().top + window.scrollY - cover - 8;
+      window.scrollTo({ top: y, behavior: "smooth" });
     });
     box.appendChild(a);
   });

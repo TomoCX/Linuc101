@@ -139,7 +139,46 @@ function renderDueCard() {
     (weak && check ? " ・ " : "") +
     (check ? "定着の確認 " + check + "問" : "");
   $("btnStartDue").textContent = "期限が来た問題を解く（" + due.length + "問）";
+  renderDueSections(due);
 }
+
+// 期限が来た問題を、ノートの項目（節）ごとにまとめる。主題の順、同じ主題の中は問題の多い順
+function dueBySection(due) {
+  const groups = new Map();
+  for (const q of due) {
+    const key = q.sec || "";
+    if (!groups.has(key)) groups.set(key, { key, ids: [], weak: 0 });
+    const g = groups.get(key);
+    g.ids.push(q.id);                      // due は弱点優先の順なので、その順のまま出す
+    if (qRank(q.id) !== 3) g.weak++;
+  }
+  return [...groups.values()].sort((a, b) =>
+    secTheme(a.key || "99").localeCompare(secTheme(b.key || "99")) || b.ids.length - a.ids.length);
+}
+
+function renderDueSections(due) {
+  const groups = dueBySection(due);
+  $("dueSecsSum").textContent = "項目ごとに解く（" + groups.length + "項目）";
+  $("dueSecList").innerHTML = groups.map(g => html`
+    <button class="due-sec" data-key="${g.key}">
+      <span class="rec-theme">${g.key ? secTheme(g.key) : "—"}</span>
+      <span class="due-sec-title">${g.key ? secTitle(g.key) : "項目なし"}</span>
+      <span class="due-sec-n">${g.ids.length}問${g.weak > 0 && raw(html`<small>（つまずき ${g.weak}）</small>`)}</span>
+    </button>`).join("");
+}
+
+// 1つの項目の、期限が来た問題だけを解く
+$("dueSecList").addEventListener("click", (e) => {
+  const btn = e.target.closest(".due-sec");
+  if (!btn) return;
+  const key = btn.dataset.key;
+  const ids = dueQuestions().filter(q => (q.sec || "") === key).map(q => q.id);
+  if (!ids.length) return;
+  startSession(ids);
+  if (key) session.from = key;             // 結果画面から、その項目のノートへ戻れるようにする
+  save(SESSION_KEY, session);
+  renderQuiz();
+});
 
 /* ==================================================================
    セッション開始

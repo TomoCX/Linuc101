@@ -1893,6 +1893,35 @@ mark.kp::before, code.kp::before {
 .due-card h2 { display: flex; align-items: baseline; gap: 4px; }
 .due-count { color: var(--streak); font-size: 22px; }
 
+/* 項目ごとに解く（期限が来た問題を節ごとに分けた一覧） */
+.due-secs { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+.due-secs > summary { cursor: pointer; font-size: 13px; color: var(--muted); user-select: none; }
+.due-secs > summary::marker { color: var(--streak); }
+.due-sec-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 6px; margin-top: 10px; }
+.due-sec {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--card-2);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.due-sec:hover { border-color: var(--streak); }
+.due-sec-title { flex: 1 1 auto; min-width: 0; }
+.due-sec-n { flex: 0 0 auto; color: var(--streak); font-weight: 600; white-space: nowrap; }
+.due-sec-n small { color: var(--wrong); font-weight: 400; font-size: 11.5px; }
+@media (max-width: 560px) {
+  .due-sec-list { grid-template-columns: 1fr; }
+  .due-sec { padding: 11px 12px; }   /* 指で押しやすく */
+}
+
 /* ==================================================================
    キーボード操作・動きを減らす設定への配慮
 ================================================================== */

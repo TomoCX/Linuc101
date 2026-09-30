@@ -265,7 +265,7 @@ a.btn { display: inline-block; text-decoration: none; text-align: center; }
   border-bottom: 1px solid var(--line);
   text-align: right;
 }
-.cat-table th { color: var(--muted); font-weight: 500; }
+.cat-table th { color: var(--muted); font-weight: 500; white-space: nowrap; }   /* 列が狭くても「正答率」などを縦に折らない */
 .cat-table th:first-child, .cat-table td:first-child { text-align: left; }
 .cat-table tbody tr:last-child td { border-bottom: none; font-weight: 600; }
 /* ==================================================================
@@ -1374,34 +1374,6 @@ body.ai-open #aiTab { display: none; }
   .brand { font-size: 14px; }
   .brand span:not(.logo) { display: none; }   /* 幅が狭いときはロゴだけにする */
   .note-sec { padding: 14px 14px 16px; }
-  /* 絞り込みと目次を折りたたんで1行に並べる（開いた方は全幅に広がる） */
-  .notes-drawers > details { flex: 1 1 0; }
-  .notes-drawers > details[open] { flex-basis: 100%; }
-  .notes-filter {
-    margin-top: 10px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: var(--card);
-  }
-  .notes-filter > summary {
-    display: block;
-    padding: 9px 14px;
-    font-size: 13px;
-    color: var(--muted);
-    cursor: pointer;
-    user-select: none;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .notes-filter > summary { list-style: none; }
-  .notes-filter > summary::-webkit-details-marker { display: none; }   /* Safari の既定の三角を消す */
-  .notes-filter > summary::before { content: "▸ "; color: var(--accent); }
-  .notes-filter[open] > summary::before { content: "▾ "; }
-  .notes-filter[open] > summary { border-bottom: 1px solid var(--line); }
-  #noteFilterSum { color: var(--accent); }
-  .notes-filter > .chip-row, .notes-filter > .learn-bar { margin: 10px; }
-  .notes-toc > summary { white-space: nowrap; }
   /* 表：説明の列が1文字幅まで潰れないように、列に最低幅を持たせる（はみ出す分は横スクロール） */
   .note-sec td { min-width: 6em; overflow-wrap: anywhere; }
   .note-sec td:first-child { overflow-wrap: break-word; }   /* 見出し列（変数名など）は途中で割らない */
@@ -1939,5 +1911,130 @@ mark.kp::before, code.kp::before {
     transition-duration: .01ms !important;
     animation-duration: .01ms !important;
     animation-iteration-count: 1 !important;
+  }
+}
+
+/* ==================================================================
+   広い画面（PC・iPad 横）のレイアウト
+   ------------------------------------------------------------------
+   ホームと暗記ノートは本文の幅を広げ、横に並べてスクロールを減らす。
+   切り替えは画面の幅ではなく main の幅で判断する（コマンド表を横に開くと main が狭くなるため）
+================================================================== */
+main { container-type: inline-size; }
+body[data-screen="home"] main,
+body[data-screen="notes"] main { max-width: 1680px; }
+
+/* ---------------- ホーム ----------------
+   HTML は列ごとにまとめてあるので、1列のときは order で元の並び順に戻す */
+.home-grid { display: flex; flex-direction: column; }
+.home-col { display: contents; }
+#sessionCard   { order: 1; }
+#dueCard       { order: 2; }
+#recHomeCard   { order: 3; }
+.home-notes    { order: 4; }
+.home-cards    { order: 5; }
+.home-start    { order: 6; }
+.home-lifetime { order: 7; }
+#lockNote      { order: 8; }
+.home-sync     { order: 9; }
+
+/* 2列：左に「主な操作」、右に「復習」。成績と設定は下に2つ並べる */
+@container (min-width: 900px) {
+  .home-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    gap: 0 18px;
+    align-items: start;
+  }
+  .home-col { display: block; }
+  .home-col > * { order: 0; }
+  .home-side {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 18px;
+    align-items: start;
+  }
+  .home-side #lockNote { order: 1; grid-column: 1 / -1; }
+}
+/* 3列：主な操作 ／ 復習 ／ 成績と設定 */
+@container (min-width: 1260px) {
+  .home-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, .95fr); }
+  .home-side { grid-column: auto; display: block; }
+}
+
+/* ---------------- 暗記ノート ----------------
+   大きな画面では、左：検索・絞り込み・目次を固定したサイドバー ／ 右：本文（節を2列に詰める。notes-view.js）。
+   それより狭い iPad 横・ノートPC では、サイドバーの分も本文に回して2列にする（見出しは上で折りたたむ） */
+@container (min-width: 1500px) {
+  #screen-notes {
+    display: grid;
+    grid-template-columns: 290px minmax(0, 1fr);
+    gap: 0 22px;
+    align-items: start;
+  }
+  #screen-notes > .notes-head {
+    grid-row: 1 / span 2;
+    top: calc(var(--topbar-h, 0px) + 12px);
+    max-height: calc(100vh - var(--topbar-h, 0px) - 24px);
+    max-height: calc(100dvh - var(--topbar-h, 0px) - 24px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    margin: 0;
+    padding: 0 6px 12px 0;
+    border-bottom: none;
+  }
+  #screen-notes .learn-bar { flex-direction: column; align-items: flex-start; gap: 8px; }
+  #screen-notes .note-toggles { flex-direction: column; gap: 4px; }
+  #noteTocList { max-height: none; }
+  #notesBody > .note-theme:first-child { margin-top: 0; }
+  /* 目次などから飛んだとき、上部バーの下にそろえる（見出しはサイドバーに移ったので分を引かない） */
+  .note-sec { scroll-margin-top: calc(var(--topbar-h, 60px) + 12px); }
+}
+/* 絞り込みと目次を折りたたんで1行に並べる（開いた方は全幅に広がる）。
+   スマホと、本文を2列にする広さでサイドバーを出さない幅（iPad 横・ノートPC）で使う。is-compact は notes-view.js が付ける */
+#screen-notes.is-compact .notes-drawers > details { flex: 1 1 0; }
+#screen-notes.is-compact .notes-drawers > details[open] { flex-basis: 100%; }
+#screen-notes.is-compact .notes-filter {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+}
+#screen-notes.is-compact .notes-filter > summary {
+  display: block;
+  padding: 9px 14px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  list-style: none;
+}
+#screen-notes.is-compact .notes-filter > summary::-webkit-details-marker { display: none; }   /* Safari の既定の三角を消す */
+#screen-notes.is-compact .notes-filter > summary::before { content: "▸ "; color: var(--accent); }
+#screen-notes.is-compact .notes-filter[open] > summary::before { content: "▾ "; }
+#screen-notes.is-compact .notes-filter[open] > summary { border-bottom: 1px solid var(--line); }
+#screen-notes.is-compact .notes-filter > .chip-row,
+#screen-notes.is-compact .notes-filter > .learn-bar { margin: 10px; }
+#screen-notes.is-compact .notes-toc > summary { white-space: nowrap; }
+#noteFilterSum { color: var(--accent); }
+
+.note-group {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 14px;
+  align-items: start;
+}
+.note-col { min-width: 0; }
+
+/* 広げた本文が画面の端まで届くので、左右の開閉タブ（941px 以上で表示）の分だけ空ける */
+@media (min-width: 941px) {
+  body[data-screen="home"] main,
+  body[data-screen="notes"] main {
+    padding-left: calc(44px + env(safe-area-inset-left));
+    padding-right: calc(44px + env(safe-area-inset-right));
   }
 }

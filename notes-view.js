@@ -570,11 +570,6 @@ function renderStatusFilter() {
   $("noteFilterSum").textContent = on.length ? "：" + on.join("・") : "";
 }
 
-// 絞り込み欄は、狭い画面では最初は閉じておく（広い画面では常に開く）
-const NOTE_NARROW = window.matchMedia("(max-width: 560px)");
-function fitNoteFilter() { $("noteFilter").open = !NOTE_NARROW.matches; }
-fitNoteFilter();
-NOTE_NARROW.addEventListener("change", fitNoteFilter);
 
 // 見出しの高さを CSS に渡す（目次から飛んだとき、節の頭が見出しに隠れないように）
 if (window.ResizeObserver) {
@@ -615,12 +610,13 @@ function buildNoteToc() {
     const stars = noteStars(key);
     a.innerHTML = html`${NOTE_STATUS_MARK[st]}<span class="note-star star-${stars}">${"★★★".slice(0, stars)}</span>${sec.title}`;
     a.addEventListener("click", () => {
-      document.getElementById("noteToc").open = false;
+      const side = notesSideMode();
+      if (!side) document.getElementById("noteToc").open = false;   // サイドバーでは開いたままにする
       const el = document.getElementById("note-sec-" + idx);
       if (!el) return;
       // 目次を閉じた後の見出しの高さで位置を決める（scroll-margin は閉じる前の高さのままのことがある）
       const cover = document.querySelector(".topbar").offsetHeight +
-                    document.querySelector("#screen-notes .notes-head").offsetHeight;
+                    (side ? 4 : document.querySelector("#screen-notes .notes-head").offsetHeight);
       const y = el.getBoundingClientRect().top + window.scrollY - cover - 8;
       window.scrollTo({ top: y, behavior: "smooth" });
     });
@@ -652,6 +648,107 @@ function filterNotes() {
   const empty = document.getElementById("noteEmpty");
   empty.hidden = hit > 0;
   renderStatusFilter();
+  layoutNotes();           // 表示する節が変わると高さも変わるので、2列の割り振りをやり直す
+}
+
+/* ---------------- 広い画面での並べ方 ----------------
+   本文が十分に広いときは、主題ごとに節を2列に詰める。
+   各節を「いま短い方の列」へ順に入れるので、上から読む順番は保たれ、列の下に大きな空きもできない */
+const NOTE_TWO_COL_MIN = 1100;   // 本文がこの幅（px）以上なら2列（1列が 540px 程度あればコードや表がほぼ収まる）
+let noteLayoutWidth = 0;
+let noteSideMode = null;
+let noteCompact = null;
+
+// 検索・目次がサイドバーに移っているか（style.css の @container で切り替わる）
+function notesSideMode() {
+  return getComputedStyle($("screen-notes")).display === "grid";
+}
+
+function layoutNotes() {
+  const body = $("notesBody");
+  if (!notesBuilt || !body.clientWidth) return;       // 画面が隠れている間は測れない
+  noteLayoutWidth = body.clientWidth;
+
+  // サイドバーに移ったときは目次を開き、上に戻ったときは閉じる（本文を隠さないように）
+  const side = notesSideMode();
+  if (side !== noteSideMode) { $("noteToc").open = side; noteSideMode = side; }
+
+  const two = body.clientWidth >= NOTE_TWO_COL_MIN;
+
+  // 絞り込み欄を折りたたむか：スマホと、サイドバーなしで2列にする幅（上の見出しを低くして本文を広く見せる）
+  const compact = !side && (window.innerWidth <= 560 || two);
+  $("screen-notes").classList.toggle("is-compact", compact);
+  if (compact !== noteCompact) { $("noteFilter").open = !compact; noteCompact = compact; }
+  const old = [...body.querySelectorAll(".note-group")];
+  const themes = [...new Set(NOTE_SECTIONS.map(s => s.theme))];
+
+  for (const t of themes) {
+    body.appendChild($("note-theme-" + t));
+    const arts = [];
+    NOTE_SECTIONS.forEach((s, i) => { if (s.theme === t) arts.push($("note-sec-" + i)); });
+
+    if (!two) { arts.forEach(a => body.appendChild(a)); continue; }
+
+    // いったん列の幅に入れて、高さと「列に収まるか」を測る
+    const probe = noteGroup();
+    body.appendChild(probe.group);
+    arts.forEach(a => probe.cols[0].appendChild(a));
+    const info = new Map(arts.map(a => [a, { h: a.hidden ? 0 : a.offsetHeight, full: !a.hidden && noteNeedsFullWidth(a) }]));
+
+    // 列に収まらない節は全幅で置き、その前後のふつうの節を2列のかたまりにまとめる
+    let run = [];
+    const flush = () => {
+      const shown = run.filter(a => !a.hidden).length;
+      if (shown <= 1) run.forEach(a => body.appendChild(a));   // 1節だけなら、片方の列が空くので全幅にする
+      else body.appendChild(noteTwoCols(run, info));
+      run = [];
+    };
+    for (const a of arts) {
+      if (info.get(a).full) { flush(); body.appendChild(a); }
+      else run.push(a);
+    }
+    flush();
+    probe.group.remove();
+  }
+  old.forEach(g => g.remove());
+}
+
+// 半分の幅だと読みにくい節か（列の幅に入れた状態で測る）
+//   ・図の文字が小さくなりすぎる ・列の多い表が詰まる ・表やコードが横にはみ出す
+function noteNeedsFullWidth(art) {
+  const fig = art.querySelector(".fig");
+  if (fig && fig.getBoundingClientRect().width < 540) return true;          // 図は 640 幅で描いてあり、これ未満だと文字が 11px を切る
+  const narrow = art.clientWidth < 600;
+  if (narrow && [...art.querySelectorAll("table")].some(t => t.rows[0] && t.rows[0].cells.length >= 4)) return true;
+  return [...art.querySelectorAll(".tbl-wrap, pre")].some(el => el.scrollWidth > el.clientWidth + 1);
+}
+
+function noteGroup() {
+  const group = document.createElement("div");
+  group.className = "note-group";
+  const cols = [document.createElement("div"), document.createElement("div")];
+  cols.forEach(c => { c.className = "note-col"; group.appendChild(c); });
+  return { group, cols };
+}
+
+// 節を「いま短い方の列」へ順に入れて、2列のかたまりを作る
+function noteTwoCols(arts, info) {
+  const { group, cols } = noteGroup();
+  const sum = [0, 0];
+  for (const a of arts) {
+    const c = sum[0] <= sum[1] ? 0 : 1;
+    cols[c].appendChild(a);
+    sum[c] += info.get(a).h;
+  }
+  return group;
+}
+
+// 幅が変わったとき（ウィンドウの大きさ・コマンド表の開閉・画面の切り替え）に並べ直す
+if (window.ResizeObserver) {
+  new ResizeObserver(() => {
+    const w = $("notesBody").clientWidth;
+    if (w && w !== noteLayoutWidth) layoutNotes();
+  }).observe($("notesBody"));
 }
 
 function renderNoteThemes() {
@@ -684,6 +781,7 @@ function showNotes(theme) {
   buildNoteToc();
   filterNotes();
   show("notes");
+  layoutNotes();           // 隠れている間は測れないので、表示してから並べる
 }
 
 // ホーム画面に主題ごとの入口を並べる

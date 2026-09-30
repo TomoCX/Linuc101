@@ -286,6 +286,7 @@ const SCREENS = ["home", "quiz", "result", "notes", "cards"];
 
 function show(name) {
   for (const id of SCREENS) $("screen-" + id).hidden = (id !== name);
+  document.body.dataset.screen = name;     // 画面ごとに本文の幅を変える（style.css）
   notifyViewChanged();
   window.scrollTo(0, 0);
 }

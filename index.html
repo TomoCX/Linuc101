@@ -138,7 +138,10 @@
 <main>
 
 <!-- ============================ ホーム ============================ -->
-<section id="screen-home" class="screen">
+<section id="screen-home" class="screen home-grid">
+
+  <!-- PCの広い画面では3列（主な操作 ／ 復習 ／ 成績と設定）に並べる。スマホでは order で元の並び順のまま1列 -->
+  <div class="home-col home-main">
 
   <div class="card" id="sessionCard" hidden>
     <div class="card-head">
@@ -208,28 +211,7 @@
     </details>
   </div>
 
-  <div class="card" id="recHomeCard" hidden>
-    <div class="card-head">
-      <h2>いま復習すべき項目</h2>
-      <span class="badge badge-ghost" id="recHomeMore" hidden></span>
-    </div>
-    <p class="sync-lead">これまでの成績から、自力で正解できていない項目を優先度の高い順に並べています。学習テキストをその場で開けます。</p>
-    <div class="rec-list" id="recHome"></div>
-  </div>
-
-  <div class="card note-entry">
-    <div class="card-head"><h2>暗記ノート</h2></div>
-    <p class="sync-lead">出題範囲を主題ごとにまとめた学習ノートです。図解つきで、解く前の確認にも復習にも使えます。</p>
-    <div class="chip-row" id="noteJump"></div>
-  </div>
-
-  <div class="card note-entry">
-    <div class="card-head"><h2>単語帳</h2></div>
-    <p class="sync-lead">単語・コマンドとその意味を1枚ずつめくって覚えます。セクションごとにも、全部まとめてランダムにも使えます。</p>
-    <div class="chip-row" id="cardJump"></div>
-  </div>
-
-  <div class="card">
+  <div class="card home-start">
     <div class="card-head"><h2>新しく始める</h2></div>
 
     <div class="field">
@@ -289,8 +271,35 @@
     </div>
     <div class="warn" id="startWarn" hidden></div>
   </div>
+  </div>
 
-  <div class="card">
+  <div class="home-col home-review">
+
+  <div class="card" id="recHomeCard" hidden>
+    <div class="card-head">
+      <h2>いま復習すべき項目</h2>
+      <span class="badge badge-ghost" id="recHomeMore" hidden></span>
+    </div>
+    <p class="sync-lead">これまでの成績から、自力で正解できていない項目を優先度の高い順に並べています。学習テキストをその場で開けます。</p>
+    <div class="rec-list" id="recHome"></div>
+  </div>
+
+  <div class="card note-entry home-notes">
+    <div class="card-head"><h2>暗記ノート</h2></div>
+    <p class="sync-lead">出題範囲を主題ごとにまとめた学習ノートです。図解つきで、解く前の確認にも復習にも使えます。</p>
+    <div class="chip-row" id="noteJump"></div>
+  </div>
+
+  <div class="card note-entry home-cards">
+    <div class="card-head"><h2>単語帳</h2></div>
+    <p class="sync-lead">単語・コマンドとその意味を1枚ずつめくって覚えます。セクションごとにも、全部まとめてランダムにも使えます。</p>
+    <div class="chip-row" id="cardJump"></div>
+  </div>
+
+  </div>
+
+  <div class="home-col home-side">
+  <div class="card home-lifetime">
     <div class="card-head">
       <h2>累計の成績</h2>
       <button class="btn btn-mini btn-ghost" id="btnResetStats">累計をリセット</button>
@@ -308,7 +317,7 @@
     <button class="btn btn-mini btn-ghost" id="btnRelock">ロックし直す</button>
   </p>
 
-  <div class="card">
+  <div class="card home-sync">
     <div class="card-head"><h2>進捗の同期・バックアップ</h2></div>
     <p class="sync-lead">
       PCとiPhoneで進捗を引き継げます。<b>使い終わった端末で「書き出す」</b>→
@@ -400,6 +409,7 @@
         <span>未解答の問題でも、正解と解説を含めてコピーする</span>
       </label>
     </div>
+  </div>
   </div>
 
 </section>

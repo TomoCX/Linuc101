@@ -2038,3 +2038,56 @@ body[data-screen="notes"] main { max-width: 1680px; }
     padding-right: calc(44px + env(safe-area-inset-right));
   }
 }
+
+/* ==================================================================
+   この問題のノート（右から出るパネル。開閉のしくみはコマンド表と共通）
+================================================================== */
+.btn-note {
+  border-color: rgba(63, 191, 127, .5);
+  color: var(--correct);
+  background: rgba(63, 191, 127, .08);
+}
+.btn-note:hover { border-color: var(--correct); background: rgba(63, 191, 127, .18); }
+/* △ つまずいている問題では目立たせる */
+.btn-note.is-stumble {
+  border-color: var(--wrong);
+  color: var(--wrong);
+  background: rgba(239, 95, 107, .12);
+  font-weight: 600;
+}
+.btn-note.is-stumble:hover { background: rgba(239, 95, 107, .22); }
+
+#notePanel { width: min(var(--help-w), 94vw); }
+body.note-open #noteBackdrop { opacity: 1; pointer-events: auto; }
+body.note-open #notePanel { transform: none; }
+body.note-open #helpTab { display: none; }
+/* 広い画面ではコマンド表と同じく本文と並べる */
+@media (min-width: 1250px) {
+  body.note-open { padding-right: min(var(--help-w), 94vw); }
+  body.note-open #noteBackdrop { opacity: 0; pointer-events: none; }
+  body.note-open main { padding-left: calc(44px + env(safe-area-inset-left)); }
+}
+
+#notePanelTitle { font-size: 15px; }
+.np-theme { font-size: 12px; color: var(--accent); margin: -4px 0 10px; }
+.np-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.np-acts.is-learned .learn-check:not(.weak-check) {
+  border-color: rgba(63, 191, 127, .5);
+  background: rgba(63, 191, 127, .12);
+  color: var(--correct);
+}
+.np-acts.is-weak .weak-check {
+  border-color: rgba(239, 95, 107, .5);
+  background: rgba(239, 95, 107, .12);
+  color: var(--wrong);
+}
+.np-used {
+  margin-top: 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(163, 174, 194, .1);
+  font-size: 12px;
+  color: var(--muted);
+}
+/* パネルの中ではカードの枠を外して、本文だけを見せる */
+.np-sec { border: none; background: none; padding: 0; margin: 0; }

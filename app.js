@@ -269,6 +269,8 @@ function renderQuiz() {
   if (config.keepHelp === false && helpIsOpen()) {
     openHelp(false);
   }
+  // ノートは前の問題の範囲なので、次の問題では閉じる
+  closeNotePanel();
   // 出題開始時点でコマンド表が開いていれば「参照した」扱いにする
   helpUsed = helpIsOpen();
   updateQuizHelpUI();
@@ -459,6 +461,20 @@ function updateQuizHelpUI() {
     ? "解答前に開くと、正解しても「正解（参照）」として記録されます"
     : "コマンドオプション早見表";
   btn.classList.toggle("is-warn", !open && !answered);
+
+  // この問題のノート（つまずいている問題は目立たせる）
+  const nb = $("btnNoteQuiz");
+  const q = session && QMAP.get(session.order[session.idx]);
+  nb.hidden = !(q && q.sec);
+  if (nb.hidden) return;
+  const nOpen = notePanelIsOpen();
+  const stumble = qRank(q.id) === 1;
+  nb.textContent = nOpen ? "ノートを閉じる"
+    : (stumble ? "△ " : "") + (answered ? "ノートで確認" : "ノートで確認（参照扱い）");
+  nb.title = (!nOpen && !answered)
+    ? "この問題の範囲のノートを横に開きます（N）。解答前に開くと「正解（参照）」として記録されます"
+    : "この問題の範囲のノートを横に開きます（N）";
+  nb.classList.toggle("is-stumble", stumble && !nOpen);
 }
 
 function updateScoreBar() {
@@ -543,7 +559,7 @@ function resultComment(rate) {
 }
 
 const REVIEW_FLAG_TEXT = {
-  help:   "コマンド表を参照して正解しました。自力で正解した問題とは分けて記録しています。",
+  help:   "コマンド表やノートを参照して正解しました。自力で正解した問題とは分けて記録しています。",
   manual: "自己申告により不正解として記録されています（選んだ選択肢自体は正解）。"
 };
 
@@ -578,9 +594,12 @@ function buildReviewItem(i) {
         : raw('<span class="rlabel">（未回答）</span>')
     }</div>
     <div class="rline"><span class="rlabel">正解：</span><span class="rc">${choiceText(q, perm, q.answer)}</span></div>
-    <div class="review-exp">${raw(glossHtml(q.exp))}</div>`;
+    <div class="review-exp">${raw(glossHtml(q.exp))}</div>
+    ${q.sec && raw(html`<div class="btn-row btn-row-tight"><button class="btn btn-mini btn-note rnote">ノートで確認：${secTitle(q.sec)}</button></div>`)}`;
 
   head.addEventListener("click", () => { body.hidden = !body.hidden; });
+  const nb = body.querySelector(".rnote");
+  if (nb) nb.addEventListener("click", () => openNotePanel(q.sec));
   item.appendChild(head);
   item.appendChild(body);
   return item;

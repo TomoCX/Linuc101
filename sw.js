@@ -8,7 +8,7 @@
    進捗そのものは localStorage にあるので、ここでは扱わない。
    ======================================================================= */
 
-const CACHE = "linuc101-shell-v1";
+const CACHE = "linuc101-shell-v2";
 
 // 最初にまとめて保存しておくもの（index.html が読み込むファイル一式）
 const SHELL = [
@@ -18,7 +18,7 @@ const SHELL = [
   "./manifest.json",
   "./auth.js", "./core.js",
   "./questions.js", "./questions-sec.js", "./commands.js", "./notes.js", "./cards.js", "./keypoints.js",
-  "./notes-view.js", "./cards-view.js", "./glossary.js", "./review-view.js",
+  "./notes-view.js", "./cards-view.js", "./glossary.js", "./review-view.js", "./note-panel-view.js",
   "./help-view.js", "./sync-view.js", "./ai-view.js", "./app.js",
   "./icon-192.png", "./icon-512.png"
 ];

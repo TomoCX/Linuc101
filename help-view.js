@@ -20,6 +20,7 @@ const HELP_TOKENS = COMMAND_HELP.map(c => {
 });
 
 function openHelp(open) {
+  if (open) closeNotePanel();                 // 右側のパネルは1つずつ
   document.body.classList.toggle("help-open", open);
   save(HELP_OPEN_KEY, open);
   // 解答前にコマンド表を開いたら「参照した」として記録する

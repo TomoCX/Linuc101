@@ -81,6 +81,25 @@
   <div class="help-body" id="helpBody"></div>
 </aside>
 
+<!-- ==================== この問題のノート（右から出る） ==================== -->
+<div id="noteBackdrop" class="side-backdrop"></div>
+<aside id="notePanel" class="side-panel side-panel-right" aria-label="この問題のノート">
+  <div class="help-head">
+    <div class="help-title">
+      <b id="notePanelTitle">ノート</b>
+      <button class="help-close" id="btnNotePanelClose" title="閉じる（Esc）">×</button>
+    </div>
+    <div class="np-theme" id="notePanelTheme"></div>
+    <div class="np-acts" id="npActs">
+      <label class="learn-check"><input type="checkbox" id="npLearned"><span>覚えた</span></label>
+      <label class="learn-check weak-check"><input type="checkbox" id="npWeak"><span>苦手</span></label>
+      <button class="btn btn-mini btn-ghost" id="btnNpOpenNotes">ノート画面で開く</button>
+    </div>
+    <div class="np-used" id="npUsedNote" hidden>解答前に開いたので、この問題は正解しても「正解（参照）」として記録されます。</div>
+  </div>
+  <div class="help-body"><div class="note-sec np-sec" id="npBody"></div></div>
+</aside>
+
 <!-- ==================== Claudeにコピー ==================== -->
 <button id="aiTab" class="side-tab side-tab-left" title="Claudeに貼る内容をコピーする（A）">
   <span>Claudeにコピー</span>
@@ -529,7 +548,7 @@
     <p class="question-text" id="questionText"></p>
     <div class="multi-note" id="multiNote" hidden>複数選択の問題です。選んでから「解答する」を押してください。</div>
     <div class="help-used-note" id="helpUsedNote" hidden>
-      コマンド表を参照しています。この問題は正解しても<b>「正解（参照）」</b>として、自力の正解とは分けて記録されます。
+      コマンド表やノートを参照しています。この問題は正解しても<b>「正解（参照）」</b>として、自力の正解とは分けて記録されます。
     </div>
     <div class="choices" id="choices"></div>
 
@@ -537,6 +556,7 @@
       <button class="btn btn-primary" id="btnAnswer" hidden>解答する</button>
       <button class="btn btn-ghost" id="btnSkip">スキップ（未回答）</button>
       <button class="btn btn-help" id="btnHelpQuiz">コマンド表を開く</button>
+      <button class="btn btn-note" id="btnNoteQuiz">ノートで確認</button>
       <a class="btn btn-ai" id="btnAiQuiz" role="button">Claudeにコピー</a>
     </div>
 
@@ -619,6 +639,7 @@
 <script src="cards-view.js"></script>
 <script src="glossary.js"></script>
 <script src="review-view.js"></script>
+<script src="note-panel-view.js"></script>
 <script src="help-view.js"></script>
 <script src="sync-view.js"></script>
 <script src="ai-view.js"></script>

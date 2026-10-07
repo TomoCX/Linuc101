@@ -262,8 +262,9 @@ function mdInline(text) {
   // コード部分をいったん退避してから装飾を処理する
   // （**`-P` と同じ** のように太字がコードをまたぐ場合に対応するため）
   const codes = [];
-  let s = esc(text).replace(/`([^`]+)`/g, (m, p1) => {
-    codes.push(p1);
+  // `` ` `` のように、バッククォート自体を書くための二重バッククォートにも対応する
+  let s = esc(text).replace(/``\s?(.+?)\s?``|`([^`]+)`/g, (m, p2, p1) => {
+    codes.push(p2 !== undefined ? p2 : p1);
     return "@@CODE" + (codes.length - 1) + "@@";
   });
 
@@ -301,11 +302,22 @@ function markKeyPoints(html) {
 }
 
 // 表の1行をセルに分ける（前後の | を落として分割する）
+// 「\|」はセルの区切りではなく文字の | として扱う（|| や正規表現の | を表に書くため）
 function mdCells(line) {
+  const bs = String.fromCharCode(92);   // バックスラッシュ（直接書かない。reEscape と同じ理由）
   let s = line.trim();
   if (s.startsWith("|")) s = s.slice(1);
-  if (s.endsWith("|")) s = s.slice(0, -1);
-  return s.split("|").map(c => c.trim());
+  if (s.endsWith("|") && !s.endsWith(bs + "|")) s = s.slice(0, -1);
+
+  const cells = [];
+  let cur = "";
+  for (let k = 0; k < s.length; k++) {
+    if (s[k] === bs && s[k + 1] === "|") { cur += "|"; k++; }
+    else if (s[k] === "|") { cells.push(cur.trim()); cur = ""; }
+    else cur += s[k];
+  }
+  cells.push(cur.trim());
+  return cells;
 }
 
 // 行の配列を HTML に変換する

@@ -2,7 +2,8 @@
    アプリ本体（ホーム・出題・結果）
    -----------------------------------------------------------------------
    共通の道具と状態は core.js、
-   コマンド表は help-view.js、進捗の同期は sync-view.js にある。
+   コマンド表は help-view.js、この問題のノートは note-panel-view.js、
+   進捗の同期は sync-view.js にある。
    ======================================================================= */
 
 const QMAP = new Map(QUESTIONS.map(q => [q.id, q]));
@@ -55,16 +56,7 @@ function renderSessionCard() {
   card.hidden = false;
 
   const t = tally(session);
-  $("statTotal").textContent   = t.total;
-  $("statCorrect").textContent = t.correct;
-  $("statAssist").textContent  = t.assist;
-  $("statWrong").textContent   = t.wrong;
-  $("statSkip").textContent    = t.skip;
-
-  $("barCorrect").style.width = pct(t.correct, t.total) + "%";
-  $("barAssist").style.width  = pct(t.assist,  t.total) + "%";
-  $("barWrong").style.width   = pct(t.wrong,   t.total) + "%";
-  $("barSkip").style.width    = pct(t.skip,    t.total) + "%";
+  paintTally(t, "stat", "bar");
 
   const done = t.correct + t.assist + t.wrong;
   $("progressLabel").textContent =
@@ -80,16 +72,20 @@ function renderSessionCard() {
   $("btnResume").hidden = !!session.finished;
   $("btnShowResult").hidden = false;
 
-  $("topbarStatus").textContent =
-    "正解 " + t.correct + " / 参照 " + t.assist + " / 不正解 " + t.wrong + " / 未回答 " + t.skip;
+  $("topbarStatus").textContent = tallyLine(t);
 }
 
 function renderLifetime() {
   const body = $("lifetimeBody");
   body.innerHTML = "";
-  let tc = 0, ta = 0, tt = 0, tk = 0;
 
-  const row = (label, t, c, a, k) => {
+  // 解答数・自力正解・参照つき正解・連続正解の問題数をまとめる
+  const sum = (qs) => {
+    let c = 0, a = 0, t = 0;
+    for (const q of qs) { const s = statOf(q.id); c += s.c; a += s.a; t += s.c + s.w + s.a; }
+    return { t, c, a, k: rankCounts(qs.map(q => q.id)).streak };
+  };
+  const row = (label, { t, c, a, k }) => {
     const r = pct(c, t);
     const tr = document.createElement("tr");
     tr.innerHTML = html`
@@ -101,17 +97,9 @@ function renderLifetime() {
   };
 
   for (const [id, name] of Object.entries(CATEGORIES)) {
-    let c = 0, a = 0, t = 0, k = 0;
-    for (const q of QUESTIONS) {
-      if (q.cat !== id) continue;
-      if (qRank(q.id) === 3) k++;
-      const s = statOf(q.id);
-      c += s.c; a += s.a; t += s.c + s.w + s.a;
-    }
-    tc += c; ta += a; tt += t; tk += k;
-    row(raw(html`<span class="cat-id">${id}</span> ${name}`), t, c, a, k);
+    row(raw(html`<span class="cat-id">${id}</span> ${name}`), sum(QUESTIONS.filter(q => q.cat === id)));
   }
-  row("合計", tt, tc, ta, tk);
+  row("合計", sum(QUESTIONS));
 }
 
 function renderHome() {
@@ -124,20 +112,24 @@ function renderHome() {
   show("home");
 }
 
-// 復習の期限が来た問題の案内（無ければカードごと隠す）
+/*
+   復習の期限が来た問題の案内（無ければカードごと隠す）。
+   内訳は出題画面のランク表示と同じ区分で数える。
+     △ つまずき（まだ自力正解がない）／ ○ 正解済みの見直し ／ ◎ 定着の確認
+*/
 function renderDueCard() {
   const due = dueQuestions();
   const card = $("dueCard");
   card.hidden = due.length === 0;
   if (!due.length) return;
 
-  let check = 0, weak = 0;
-  for (const q of due) { if (qRank(q.id) === 3) check++; else weak++; }
+  const n = rankCounts(due.map(q => q.id));
   $("dueCount").textContent = due.length;
-  $("dueDetail").textContent =
-    (weak ? "つまずいている問題 " + weak + "問" : "") +
-    (weak && check ? " ・ " : "") +
-    (check ? "定着の確認 " + check + "問" : "");
+  $("dueDetail").textContent = [
+    n.stumbled && "つまずいている問題 " + n.stumbled + "問",
+    n.solved   && "正解済みの見直し " + n.solved + "問",
+    n.streak   && "定着の確認 " + n.streak + "問"
+  ].filter(Boolean).join(" ・ ");
   $("btnStartDue").textContent = "期限が来た問題を解く（" + due.length + "問）";
   renderDueSections(due);
 }
@@ -147,10 +139,8 @@ function dueBySection(due) {
   const groups = new Map();
   for (const q of due) {
     const key = q.sec || "";
-    if (!groups.has(key)) groups.set(key, { key, ids: [], weak: 0 });
-    const g = groups.get(key);
-    g.ids.push(q.id);                      // due は弱点優先の順なので、その順のまま出す
-    if (qRank(q.id) !== 3) g.weak++;
+    if (!groups.has(key)) groups.set(key, { key, ids: [] });
+    groups.get(key).ids.push(q.id);        // due は弱点優先の順なので、その順のまま出す
   }
   return [...groups.values()].sort((a, b) =>
     secTheme(a.key || "99").localeCompare(secTheme(b.key || "99")) || b.ids.length - a.ids.length);
@@ -159,30 +149,37 @@ function dueBySection(due) {
 function renderDueSections(due) {
   const groups = dueBySection(due);
   $("dueSecsSum").textContent = "項目ごとに解く（" + groups.length + "項目）";
-  $("dueSecList").innerHTML = groups.map(g => html`
+  $("dueSecList").innerHTML = groups.map(g => {
+    const stumbled = rankCounts(g.ids).stumbled;     // △ だけ（○ 正解済みは含めない）
+    return html`
     <button class="due-sec" data-key="${g.key}">
       <span class="rec-theme">${g.key ? secTheme(g.key) : "—"}</span>
       <span class="due-sec-title">${g.key ? secTitle(g.key) : "項目なし"}</span>
-      <span class="due-sec-n">${g.ids.length}問${g.weak > 0 && raw(html`<small>（つまずき ${g.weak}）</small>`)}</span>
-    </button>`).join("");
+      <span class="due-sec-n">${g.ids.length}問${stumbled > 0 && raw(html`<small>（つまずき ${stumbled}）</small>`)}</span>
+    </button>`;
+  }).join("");
 }
 
-// 1つの項目の、期限が来た問題だけを解く
+// 1つの項目の、期限が来た問題だけを解く（結果画面から、その項目のノートへ戻れるようにする）
 $("dueSecList").addEventListener("click", (e) => {
   const btn = e.target.closest(".due-sec");
   if (!btn) return;
   const key = btn.dataset.key;
   const ids = dueQuestions().filter(q => (q.sec || "") === key).map(q => q.id);
-  if (!ids.length) return;
-  startSession(ids);
-  if (key) session.from = key;             // 結果画面から、その項目のノートへ戻れるようにする
-  save(SESSION_KEY, session);
-  renderQuiz();
+  if (ids.length) beginSession(ids, key || null);
 });
 
 /* ==================================================================
    セッション開始
 ================================================================== */
+// セッションを作って保存し、1問目を出す（from はノートへ戻る導線に使う節キー）
+function beginSession(ids, from) {
+  startSession(ids);
+  if (from) session.from = from;
+  save(SESSION_KEY, session);
+  renderQuiz();
+}
+
 function startSession(ids) {
   let order;
   if (ids) {
@@ -244,9 +241,16 @@ function newSession(order) {
 ================================================================== */
 let answered = false;          // 現在の問題が判定済みか
 let selection = [];            // 複数選択の選択中インデックス
-let helpUsed = false;          // この問題の解答中にコマンド表を開いたか
+let referred = false;          // 解答前にコマンド表・ノート・Claudeへのコピーを使ったか（正解しても「参照」扱い）
 let rawOk = false;             // 選択内容そのものは正解だったか
 let curSkipped = false;        // この問題をスキップしたか
+
+// 解答前に手がかりを見たことを記録する（コマンド表・ノート・コピーの各機能から呼ぶ）
+function markReferred() {
+  if (currentScreen() !== "quiz" || !session || answered) return;
+  referred = true;
+  updateQuizRefUI();
+}
 
 // 問題ごとの到達ランクのバッジ（－未着手 / △つまずき / ○正解 / ◎連続正解）
 function updateRankBadge(qid) {
@@ -272,8 +276,8 @@ function renderQuiz() {
   // ノートは前の問題の範囲なので、次の問題では閉じる
   closeNotePanel();
   // 出題開始時点でコマンド表が開いていれば「参照した」扱いにする
-  helpUsed = helpIsOpen();
-  updateQuizHelpUI();
+  referred = helpIsOpen();
+  updateQuizRefUI();
 
   $("qIndex").textContent = session.idx + 1;
   $("qTotal").textContent = session.order.length;
@@ -343,11 +347,11 @@ function judge(picked) {
   rawOk = ok;
   curSkipped = skipped;
 
-  // コマンド表を参照して正解した場合は「正解（参照）」として別枠で記録する
-  const result = skipped ? "skip" : (ok ? (helpUsed ? "assist" : "correct") : "wrong");
+  // コマンド表やノートを参照して正解した場合は「正解（参照）」として別枠で記録する
+  const result = skipped ? "skip" : (ok ? (referred ? "assist" : "correct") : "wrong");
   session.results[session.idx] = result;
   session.picked[session.idx]  = skipped ? null : picked.slice();
-  session.flags[session.idx]   = (ok && helpUsed) ? "help" : null;
+  session.flags[session.idx]   = (ok && referred) ? "help" : null;
 
   // 累計成績（スキップは記録しない）
   if (!skipped) recordStat(q.id, null, result);
@@ -406,14 +410,14 @@ function refreshVerdict() {
   }
   else if (res === "assist")  {
     v.className = "verdict as";
-    v.innerHTML = html`○ 正解<span class="verdict-tag">コマンド表を参照</span>`;
+    v.innerHTML = html`○ 正解<span class="verdict-tag">参照あり</span>`;
   }
   else                        { v.textContent = "✕ 不正解"; v.className = "verdict ng"; }
 
   // 判定の補足
   if (res === "assist") {
     note.hidden = false;
-    note.textContent = "コマンド表を参照して解答したため、自力で正解した問題とは分けて記録します（正答率には含めません）。";
+    note.textContent = "コマンド表やノートを参照して解答したため、自力で正解した問題とは分けて記録します（正答率には含めません）。";
   } else if (res === "wrong" && rawOk) {
     note.hidden = false;
     note.textContent = "自己申告により不正解として記録しました。";
@@ -423,7 +427,7 @@ function refreshVerdict() {
   }
 
   // 「不正解にする」ボタンは、参照なしで正解した問題にだけ出す
-  if (curSkipped || !rawOk || helpUsed) {
+  if (curSkipped || !rawOk || referred) {
     btn.hidden = true;
   } else {
     btn.hidden = false;
@@ -431,7 +435,7 @@ function refreshVerdict() {
     btn.textContent = downgraded ? "やっぱり正解にする" : "不正解にする";
     btn.classList.toggle("is-undo", downgraded);
   }
-  updateQuizHelpUI();
+  updateQuizRefUI();
 }
 
 // 「不正解にする」／「やっぱり正解にする」
@@ -447,13 +451,15 @@ function setManualResult(res) {
   updateScoreBar();
 }
 
-// コマンド表の参照状態にあわせて、問題画面の警告文とボタンを更新する
-function updateQuizHelpUI() {
-  const note = $("helpUsedNote");
-  if (note) note.hidden = !(helpUsed && !answered);
+// 参照の状態にあわせて、問題画面の警告文と「コマンド表」「ノート」ボタンを更新する
+function updateQuizRefUI() {
+  $("refNote").hidden = !(referred && !answered);
+  updateHelpButton();
+  updateNoteButton();
+}
 
+function updateHelpButton() {
   const btn = $("btnHelpQuiz");
-  if (!btn) return;
   const open = helpIsOpen();
   btn.textContent = open ? "コマンド表を閉じる"
     : (answered ? "コマンド表を開く" : "コマンド表を開く（参照扱い）");
@@ -461,34 +467,27 @@ function updateQuizHelpUI() {
     ? "解答前に開くと、正解しても「正解（参照）」として記録されます"
     : "コマンドオプション早見表";
   btn.classList.toggle("is-warn", !open && !answered);
+}
 
-  // この問題のノート（つまずいている問題は目立たせる）
-  const nb = $("btnNoteQuiz");
+// この問題のノート（△ つまずいている問題は目立たせる）
+function updateNoteButton() {
+  const btn = $("btnNoteQuiz");
   const q = session && QMAP.get(session.order[session.idx]);
-  nb.hidden = !(q && q.sec);
-  if (nb.hidden) return;
-  const nOpen = notePanelIsOpen();
+  btn.hidden = !(q && q.sec);
+  if (btn.hidden) return;
+  const open = notePanelIsOpen();
   const stumble = qRank(q.id) === 1;
-  nb.textContent = nOpen ? "ノートを閉じる"
+  btn.textContent = open ? "ノートを閉じる"
     : (stumble ? "△ " : "") + (answered ? "ノートで確認" : "ノートで確認（参照扱い）");
-  nb.title = (!nOpen && !answered)
-    ? "この問題の範囲のノートを横に開きます（N）。解答前に開くと「正解（参照）」として記録されます"
-    : "この問題の範囲のノートを横に開きます（N）";
-  nb.classList.toggle("is-stumble", stumble && !nOpen);
+  btn.title = "この問題の範囲のノートを横に開きます（N）" +
+    (!open && !answered ? "。解答前に開くと「正解（参照）」として記録されます" : "");
+  btn.classList.toggle("is-stumble", stumble && !open);
 }
 
 function updateScoreBar() {
   const t = tally(session);
-  $("scoreCorrect").textContent = t.correct;
-  $("scoreAssist").textContent  = t.assist;
-  $("scoreWrong").textContent   = t.wrong;
-  $("scoreSkip").textContent    = t.skip;
-  $("qBarCorrect").style.width  = pct(t.correct, t.total) + "%";
-  $("qBarAssist").style.width   = pct(t.assist,  t.total) + "%";
-  $("qBarWrong").style.width    = pct(t.wrong,   t.total) + "%";
-  $("qBarSkip").style.width     = pct(t.skip,    t.total) + "%";
-  $("topbarStatus").textContent =
-    "正解 " + t.correct + " / 参照 " + t.assist + " / 不正解 " + t.wrong + " / 未回答 " + t.skip;
+  paintTally(t, "score", "qBar");
+  $("topbarStatus").textContent = tallyLine(t);
 }
 
 function next() {
@@ -520,11 +519,7 @@ function renderResult() {
     + (t.assist ? "（ほかに参照 " + t.assist + " 問）" : "");
   $("resultStreak").hidden = streaked === 0;
   $("resultStreak").innerHTML = html`◎ うち <b>${streaked}問</b> が連続正解（2回以上つづけて自力正解）`;
-  $("rTotal").textContent   = t.total;
-  $("rCorrect").textContent = t.correct;
-  $("rAssist").textContent  = t.assist;
-  $("rWrong").textContent   = t.wrong;
-  $("rSkip").textContent    = t.skip;
+  paintTally(t, "r");
 
   const color = rate >= 80 ? "var(--correct)" : rate >= 60 ? "var(--warn)" : "var(--wrong)";
   $("scoreCircle").style.borderColor = color;
@@ -558,6 +553,7 @@ function resultComment(rate) {
   return "解説を読み直して、同じ範囲をもう一周しましょう。";
 }
 
+// session.flags の値ごとの説明（"help" は参照つき正解。旧版からの保存データに合わせた名前）
 const REVIEW_FLAG_TEXT = {
   help:   "コマンド表やノートを参照して正解しました。自力で正解した問題とは分けて記録しています。",
   manual: "自己申告により不正解として記録されています（選んだ選択肢自体は正解）。"
@@ -637,9 +633,7 @@ $("optShuffle").addEventListener("change", (e) => {
 // 復習の期限が来た問題だけを解く
 $("btnStartDue").addEventListener("click", () => {
   const ids = dueQuestions().map(q => q.id);
-  if (!ids.length) return;
-  startSession(ids);
-  renderQuiz();
+  if (ids.length) beginSession(ids);
 });
 
 $("btnCatAll").addEventListener("click", () => {
@@ -663,9 +657,7 @@ $("btnStart").addEventListener("click", () => {
       return;
     }
   }
-  startSession(null);
-  save(SESSION_KEY, session);
-  renderQuiz();
+  beginSession(null);
 });
 
 $("btnResume").addEventListener("click", () => {
@@ -710,36 +702,25 @@ $("btnPause").addEventListener("click", () => { save(SESSION_KEY, session); rend
 $("brandHome").addEventListener("click", () => { if (session) save(SESSION_KEY, session); renderHome(); });
 
 $("btnRetryWrong").addEventListener("click", () => {
-  const from = session.from;
   const ids = session.order.filter((id, i) => session.results[i] !== "correct");
-  if (!ids.length) return;
-  startSession(shuffle(ids));
-  if (from) session.from = from;          // ノートへ戻る導線を保つ
-  save(SESSION_KEY, session);
-  renderQuiz();
+  if (ids.length) beginSession(shuffle(ids), session.from);   // ノートへ戻る導線を保つ
 });
 $("btnRetrySame").addEventListener("click", () => {
   // ノートの節から始めた場合は、同じ節をもう一度出題する
-  if (session.from) { startSectionQuiz(session.from); return; }
-  startSession(null);
-  save(SESSION_KEY, session);
-  renderQuiz();
+  if (session.from) startSectionQuiz(session.from);
+  else beginSession(null);
 });
 $("btnHomeFromResult").addEventListener("click", renderHome);
 $("btnBackToNote").addEventListener("click", () => {
-  const key = session && session.from;
-  showNotes();
-  if (key) {
-    const el = document.querySelector('#notesBody .note-sec[data-key="' + CSS.escape(key) + '"]');
-    if (el) el.scrollIntoView({ block: "start" });
-  }
+  if (session && session.from) showNoteSection(session.from);
+  else showNotes();
 });
 
 // キーボード操作
 document.addEventListener("keydown", (e) => {
   if (isTyping(e.target)) return;
   if (e.target.closest && e.target.closest(".gloss")) return;   // 用語の説明を開く操作を優先
-  if ($("screen-quiz").hidden) return;
+  if (currentScreen() !== "quiz") return;
   if (e.key === "Enter" || e.key === " ") {
     if (answered) { e.preventDefault(); next(); }
     else if (!$("btnAnswer").hidden && selection.length) { e.preventDefault(); judge(selection); }
@@ -756,10 +737,7 @@ document.addEventListener("keydown", (e) => {
    初期化
 ================================================================== */
 (function init() {
-  // 設定の妥当性チェック（カテゴリ追加・削除に追随）
-  config.cats = (config.cats || []).filter(c => CATEGORIES[c]);
-  if (!config.cats.length) config.cats = Object.keys(CATEGORIES);
-  if (config.keepHelp === undefined) config.keepHelp = true;   // 旧設定の互換
+  normalizeConfig(config);
 
   // 保存済みセッションが壊れていたら破棄する
   session = normalizeSession(session);

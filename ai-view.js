@@ -86,11 +86,6 @@ function aiHeader(hideAnswer) {
   return lines.join("\n");
 }
 
-function aiCurrentScreen() {
-  for (const id of SCREENS) if (!$("screen-" + id).hidden) return id;
-  return "home";
-}
-
 // いま画面をいちばん広く占めているノートの節（＝読んでいる節）
 function aiVisibleNoteKey() {
   const h = window.innerHeight || document.documentElement.clientHeight;
@@ -106,7 +101,7 @@ function aiVisibleNoteKey() {
 
 // 節キー → ノート本文（長すぎるときは切る）
 function aiSectionText(key, limit) {
-  const sec = NOTE_BY_KEY.get(key);
+  const sec = noteByKey(key);
   if (!sec) return "";
   let text = sec.lines.join("\n");
   if (text.length > limit) text = text.slice(0, limit) + "\n…（以下省略）";
@@ -148,7 +143,7 @@ function aiChoiceLines(q, perm, picks, hideAnswer) {
 }
 
 const AI_VERDICT = {
-  correct: "自力で正解した", assist: "コマンド表を参照して正解した",
+  correct: "自力で正解した", assist: "コマンド表やノートを参照して正解した",
   wrong: "不正解だった", skip: "スキップした（未回答）"
 };
 
@@ -216,11 +211,12 @@ const AI_CONTEXT = {
 
   notes() {
     const sec = aiVisibleNoteKey();
+    const st = sec && noteStatus(sec);
     return {
       label: sec ? "ノート：" + secTitle(sec) : "暗記ノート",
       now: [
         "暗記ノートを読んでいます。",
-        sec ? "いま開いている節: " + sec + (learned[sec] ? "（覚えたにチェック済み）" : noteWeak[sec] ? "（苦手にチェック済み）" : "")
+        sec ? "いま開いている節: " + sec + (st !== "unseen" ? "（" + NOTE_STATUS_LABEL[st] + "にチェック済み）" : "")
             : "特定の節ではなく一覧を見ています。"
       ],
       ref: [], sec
@@ -236,17 +232,11 @@ const AI_CONTEXT = {
   },
 
   home() {
-    let seen = 0, ok = 0, streak = 0;
-    for (const q of QUESTIONS) {
-      const r = qRank(q.id);
-      if (r > 0) seen++;
-      if (r >= 2) ok++;
-      if (r === 3) streak++;
-    }
+    const n = rankCounts(QUESTIONS.map(q => q.id));
     const now = [
       "学習アプリのホーム画面です。",
-      "累計: 全" + QUESTIONS.length + "問中、解いたことがある " + seen + "問、" +
-        "自力正解できた " + ok + "問（うち2回以上つづけて正解 " + streak + "問）"
+      "累計: 全" + QUESTIONS.length + "問中、解いたことがある " + (QUESTIONS.length - n.untouched) + "問、" +
+        "自力正解できた " + (n.solved + n.streak) + "問（うち2回以上つづけて正解 " + n.streak + "問）"
     ];
     const weak = recMasteryByStats()
       .filter(x => x.answered > 0 && x.ok < x.total)
@@ -261,7 +251,7 @@ const AI_CONTEXT = {
 
 // いま開いている画面から、【いまの状況】と【参考資料】を組み立てる
 function aiContext() {
-  const screen = aiCurrentScreen();
+  const screen = currentScreen();
   const c = (AI_CONTEXT[screen] && AI_CONTEXT[screen]()) || AI_CONTEXT.home();
 
   const ref = c.sec ? [aiSectionText(c.sec, 4000)].concat(c.ref) : c.ref;
@@ -341,22 +331,13 @@ function aiNotify(ok, n, opening) {
   }
 }
 
-// 解答前のコピーは、コマンド表と同じく「参照」扱いにする
-function markAssistIfUnanswered() {
-  if (!aiCfg.assist) return;
-  if (aiCurrentScreen() !== "quiz" || !session) return;
-  if (answered || curSkipped || helpUsed) return;
-  helpUsed = true;
-  updateQuizHelpUI();
-}
-
 /*
    コピーのボタンが押されたときの処理（出題画面のリンク・パネルの2つのボタンで共通）。
    Universal Links は「利用者がリンクを押した」ときしかアプリに渡らないので、
    開くときは既定の遷移を止めず、その前にコピーを済ませる。
 */
 function aiCopy(e) {
-  markAssistIfUnanswered();
+  if (aiCfg.assist) markReferred();          // 解答前のコピーは、コマンド表と同じく「参照」扱いにする（設定で切れる）
   const el = e.currentTarget;
   const inPanel = !!el.closest("#aiPanel");            // パネルでは入力した質問も入れる
   const text = aiFullText(inPanel ? $("aiQuestion").value : "");
@@ -484,7 +465,7 @@ const AI_SUGGEST = {
 };
 
 function aiRenderSuggest() {
-  const screen = aiCurrentScreen();
+  const screen = currentScreen();
   const key = screen !== "quiz" ? screen : (answered || curSkipped) ? "quizDone" : "quizOpen";
   const list = AI_SUGGEST[key] || AI_SUGGEST.home;
   $("aiSuggest").innerHTML = html`${list.map(s => html`<button class="chip ai-sug">${s}</button>`).map(raw)}`;

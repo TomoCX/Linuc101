@@ -177,9 +177,9 @@ function glossOpen(key, anchor) {
   const def = glossMap.get(key);
   if (!def) return;
 
-  const pop = document.getElementById("glossPop");
-  document.getElementById("glossTerm").textContent = key;
-  document.getElementById("glossDef").textContent = def;
+  const pop = $("glossPop");
+  $("glossTerm").textContent = key;
+  $("glossDef").textContent = def;
   pop.hidden = false;
 
   // 画面が狭いときは下部に固定表示、広いときはクリックした語の近くに出す
@@ -204,11 +204,11 @@ function glossOpen(key, anchor) {
 }
 
 function glossClose() {
-  const pop = document.getElementById("glossPop");
+  const pop = $("glossPop");
   if (pop) pop.hidden = true;
 }
 
-document.getElementById("btnGlossClose").addEventListener("click", (e) => {
+$("btnGlossClose").addEventListener("click", (e) => {
   e.stopPropagation();
   glossClose();
 });

@@ -23,9 +23,8 @@ function openHelp(open) {
   if (open) closeNotePanel();                 // 右側のパネルは1つずつ
   document.body.classList.toggle("help-open", open);
   save(HELP_OPEN_KEY, open);
-  // 解答前にコマンド表を開いたら「参照した」として記録する
-  if (open && !$("screen-quiz").hidden && !answered) helpUsed = true;
-  updateQuizHelpUI();
+  if (open) markReferred();                   // 解答前に開いたら「参照した」として記録する
+  updateQuizRefUI();
   if (open) setTimeout(() => $("helpSearch").focus(), 220);
 }
 

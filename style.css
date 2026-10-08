@@ -837,7 +837,7 @@ a.btn { display: inline-block; text-decoration: none; text-align: center; }
   margin-bottom: 12px;
 }
 
-.help-used-note {
+.ref-note {
   font-size: 12.5px;
   color: var(--muted);
   background: rgba(163, 174, 194, .08);
@@ -847,7 +847,7 @@ a.btn { display: inline-block; text-decoration: none; text-align: center; }
   margin-bottom: 12px;
   line-height: 1.6;
 }
-.help-used-note b { color: var(--assist); }
+.ref-note b { color: var(--assist); }
 
 .choices { display: flex; flex-direction: column; gap: 10px; }
 .choice {

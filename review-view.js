@@ -6,54 +6,29 @@
    どちらも「その節の全問題数」を分母にして習得状況を示す。
    ======================================================================= */
 
-
-// 節キー → ノート本文
-const NOTE_BY_KEY = new Map();
-(function () {
-  if (typeof NOTE_SECTIONS === "undefined") return;
-  for (const s of NOTE_SECTIONS) NOTE_BY_KEY.set(s.theme + "/" + s.title, s);
-})();
-
-// 節キー → その節の問題ID一覧
-const QIDS_BY_SEC = new Map();
-(function () {
-  for (const q of QUESTIONS) {
-    if (!q.sec) continue;
-    if (!QIDS_BY_SEC.has(q.sec)) QIDS_BY_SEC.set(q.sec, []);
-    QIDS_BY_SEC.get(q.sec).push(q.id);
-  }
-})();
-
 /* ---------------- 集計 ---------------- */
 
 /*
    累計成績から、節ごとの習得状況を出す。
-   分母はその節の全問題数。1問ずつ到達ランクで分類する。
-     streak    … 2回以上つづけて自力正解（定着）
-     mastered  … 一度でも自力で正解した
-     stumbled  … 解いたが自力正解はまだ（不正解・参照つき正解のみ）
-     untouched … まだ一度も解いていない
+   分母はその節の全問題数。1問ずつ到達ランクで分類する（core.js の rankCounts）。
+     streak    … ◎ 2回以上つづけて自力正解（定着）
+     mastered  … ○ 一度でも自力で正解した
+     stumbled  … △ 解いたが自力正解はまだ（不正解・参照つき正解のみ）
+     untouched … － まだ一度も解いていない
    ok = streak + mastered（自力で正解できている問題）
 */
 function recMasteryByStats() {
   const out = [];
-  QIDS_BY_SEC.forEach((ids, key) => {
-    let streak = 0, mastered = 0, stumbled = 0, untouched = 0;
-    for (const id of ids) {
-      const r = qRank(id);
-      if (r === 3) streak++;            // ◎ 連続正解
-      else if (r === 2) mastered++;     // ○ 正解
-      else if (r === 1) stumbled++;     // △ つまずき
-      else untouched++;                 // － 未着手
-    }
-    const ok = streak + mastered;       // 自力で正解できている問題
+  questionsBySec().forEach((ids, key) => {
+    const n = rankCounts(ids);
+    const ok = n.streak + n.solved;
     out.push({
       key: key, title: secTitle(key), theme: secTheme(key),
       total: ids.length,
-      streak: streak, mastered: mastered, stumbled: stumbled, untouched: untouched,
+      streak: n.streak, mastered: n.solved, stumbled: n.stumbled, untouched: n.untouched,
       ok: ok,
-      answered: ok + stumbled,
-      rate: ids.length ? Math.round((ok / ids.length) * 100) : 0
+      answered: ok + n.stumbled,
+      rate: pct(ok, ids.length)
     });
   });
   return out;
@@ -79,7 +54,6 @@ function recMissBySession(s) {
 
 /* ---------------- 表示 ---------------- */
 
-
 /*
    item に必要なもの
      key / title / theme / rate / total（節の全問題数）
@@ -91,9 +65,9 @@ function recBuildItem(item) {
   el.className = "rec-item";
   el.dataset.key = item.key;
 
-  const nQ = (QIDS_BY_SEC.get(item.key) || []).length;
-  const nC = (typeof CARDS !== "undefined") ? CARDS.filter(c => c.sec === item.key).length : 0;
-  const sec = NOTE_BY_KEY.get(item.key);
+  const nQ = secQuestionIds(item.key).length;
+  const nC = CARDS.filter(c => c.sec === item.key).length;
+  const sec = noteByKey(item.key);
 
   // 習得状況のバー（連続正解／正解／つまずき／未着手）
   const seg = (cls, n) => raw(html`<span class="seg ${cls}" style="width:${n / item.total * 100}%"></span>`);
@@ -102,11 +76,10 @@ function recBuildItem(item) {
       ${seg("seg-streak", item.streak)}${seg("seg-correct", item.mastered)}${seg("seg-wrong", item.stumbled)}${seg("seg-skip", item.untouched)}
     </div>`);
 
-  const fig = sec && NOTE_FIGURES[sec.title];
   const text = sec && raw(html`
     <details class="rec-text">
       <summary>学習テキストを開く</summary>
-      <div class="note-sec rec-note">${fig && raw(html`<div class="note-fig">${raw(fig)}</div>`)}${raw(mdToHtml(sec.lines))}</div>
+      <div class="note-sec rec-note">${raw(noteBodyHtml(sec))}</div>
     </details>`);
 
   el.innerHTML = html`
@@ -127,39 +100,32 @@ function recBuildItem(item) {
 }
 
 function recRender(boxId, items, emptyText) {
-  const box = document.getElementById(boxId);
-  if (!box) return;
+  const box = $(boxId);
   box.innerHTML = "";
   if (!items.length) {
-    box.innerHTML = '<div class="rec-empty">' + emptyText + "</div>";
+    box.innerHTML = html`<div class="rec-empty">${emptyText}</div>`;
     return;
   }
   for (const item of items) box.appendChild(recBuildItem(item));
 }
 
-function recSetMore(id, hidden, n) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.hidden = hidden;
-  el.textContent = "ほかに " + n + " 項目";
+// 「ほかに n 項目」のバッジ（表示しきれなかった数）
+function recSetMore(id, shown, total) {
+  const el = $(id);
+  el.hidden = total <= shown;
+  el.textContent = "ほかに " + Math.max(0, total - shown) + " 項目";
 }
 
 // ボタンはまとめて処理する
 function recBindActions(boxId) {
-  const box = document.getElementById(boxId);
-  if (!box) return;
-  box.addEventListener("click", (e) => {
+  $(boxId).addEventListener("click", (e) => {
     const item = e.target.closest(".rec-item");
     if (!item) return;
     const key = item.dataset.key;
 
-    if (e.target.closest(".rec-quiz")) { startSectionQuiz(key); return; }
-    if (e.target.closest(".rec-cards")) { showCards(key); return; }
-    if (e.target.closest(".rec-note-open")) {
-      showNotes();
-      const el = document.querySelector('#notesBody .note-sec[data-key="' + CSS.escape(key) + '"]');
-      if (el) el.scrollIntoView({ block: "start" });
-    }
+    if (e.target.closest(".rec-quiz")) startSectionQuiz(key);
+    else if (e.target.closest(".rec-cards")) showCards(key);
+    else if (e.target.closest(".rec-note-open")) showNoteSection(key);
   });
 }
 
@@ -167,7 +133,7 @@ function recBindActions(boxId) {
 
 // 結果画面：この回で落とした項目（累計の習得状況もあわせて出す）
 function renderResultRecommend() {
-  document.getElementById("recResultCard").hidden = false;
+  $("recResultCard").hidden = false;
 
   const miss = recMissBySession(session);
   const mastery = new Map(recMasteryByStats().map(x => [x.key, x]));
@@ -197,12 +163,12 @@ function renderResultRecommend() {
   items.sort((x, y) => (y.lost - x.lost) || (x.rate - y.rate));
 
   recRender("recResult", items.slice(0, 6), "この回で落とした項目はありません。よくできています。");
-  recSetMore("recResultMore", items.length <= 6, Math.max(0, items.length - 6));
+  recSetMore("recResultMore", 6, items.length);
 }
 
 // ホーム：累計成績から見た習得状況
 function renderHomeRecommend() {
-  const card = document.getElementById("recHomeCard");
+  const card = $("recHomeCard");
   const all = recMasteryByStats().filter(x => x.answered > 0);   // 一度は解いた節だけ
 
   if (!all.length) { card.hidden = true; return; }
@@ -220,7 +186,7 @@ function renderHomeRecommend() {
 
   recRender("recHome", items.slice(0, 5),
     "解いた項目はすべて自力で正解できています。範囲を広げてみましょう。");
-  recSetMore("recHomeMore", items.length <= 5, Math.max(0, items.length - 5));
+  recSetMore("recHomeMore", 5, items.length);
 }
 
 recBindActions("recResult");

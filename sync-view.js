@@ -18,6 +18,14 @@ function normalizeSession(s) {
   return s;
 }
 
+// 保存済みの出題設定を、いまのカテゴリ・項目に合わせて整える（起動時と取り込み時）
+function normalizeConfig(c) {
+  c.cats = (c.cats || []).filter(id => CATEGORIES[id]);
+  if (!c.cats.length) c.cats = Object.keys(CATEGORIES);   // カテゴリの追加・削除に追随
+  if (c.keepHelp === undefined) c.keepHelp = true;        // 旧設定の互換
+  return c;
+}
+
 // 現在の状態を1つのオブジェクトにまとめる
 function buildPayload() {
   let answered = 0;
@@ -118,14 +126,10 @@ function applyPayload(data, silent) {
   else remove(SESSION_KEY);
 
   if (data.config && typeof data.config === "object") {
-    config = data.config;
-    config.cats = (config.cats || []).filter(c => CATEGORIES[c]);
-    if (!config.cats.length) config.cats = Object.keys(CATEGORIES);
-    if (config.keepHelp === undefined) config.keepHelp = true;
+    config = normalizeConfig(data.config);
     save(CONFIG_KEY, config);
   }
 
-  // 変更時刻は取り込んだデータのものに合わせる（同期の新旧判定のため）
   // 変更時刻は取り込んだデータのものに合わせる（同期の新旧判定のため）
   lastChangeAt = new Date(data.savedAt).getTime() || Date.now();
   try { localStorage.setItem(STAMP_KEY, JSON.stringify(lastChangeAt)); } catch (e) { /* noop */ }
@@ -248,13 +252,22 @@ function renderGistUI() {
   gistState();
 }
 
-async function gistApi(path, options) {
-  const opt = Object.assign({}, options);
-  opt.headers = Object.assign({
+function gistHeaders() {
+  return {
     "Authorization": "Bearer " + gist.token,
     "Accept": "application/vnd.github+json",
     "Content-Type": "application/json"
-  }, options && options.headers);
+  };
+}
+
+// Gist に置く中身（進捗を1ファイルにしたもの。省略するといまの進捗）
+function gistFiles(payload) {
+  return { [GIST_FILE]: { content: JSON.stringify(payload || buildPayload()) } };
+}
+
+async function gistApi(path, options) {
+  const opt = Object.assign({}, options);
+  opt.headers = Object.assign(gistHeaders(), options && options.headers);
 
   const res = await fetch(GIST_API + path, opt);
   if (!res.ok) {
@@ -279,10 +292,7 @@ async function gistPush(manual) {
   gistState("保存中…", "busy");
   try {
     const payload = buildPayload();
-    await gistApi("/gists/" + gist.id, {
-      method: "PATCH",
-      body: JSON.stringify({ files: { [GIST_FILE]: { content: JSON.stringify(payload) } } })
-    });
+    await gistApi("/gists/" + gist.id, { method: "PATCH", body: JSON.stringify({ files: gistFiles(payload) }) });
     gist.lastSyncAt = Date.now();
     save(GIST_KEY, gist);
     gistState();
@@ -347,12 +357,18 @@ async function gistConnect() {
     const list = await gistApi("/gists?per_page=100");
     const found = Array.isArray(list) ? list.find(g => g.files && g.files[GIST_FILE]) : null;
 
-    if (found) {
-      gist.id = found.id;
+    // 保存先を決めて接続済みにする（トークンの入力欄は空にする）
+    const connectTo = (id, syncedNow) => {
+      gist.id = id;
       gist.auto = true;
+      if (syncedNow) gist.lastSyncAt = Date.now();
       save(GIST_KEY, gist);
       renderGistUI();
       $("gistToken").value = "";
+    };
+
+    if (found) {
+      connectTo(found.id, false);
       await gistSync(true);
     } else {
       const created = await gistApi("/gists", {
@@ -360,15 +376,10 @@ async function gistConnect() {
         body: JSON.stringify({
           description: "Linuc 101 問題演習の進捗（自動同期用）",
           public: false,
-          files: { [GIST_FILE]: { content: JSON.stringify(buildPayload()) } }
+          files: gistFiles()
         })
       });
-      gist.id = created.id;
-      gist.auto = true;
-      gist.lastSyncAt = Date.now();
-      save(GIST_KEY, gist);
-      renderGistUI();
-      $("gistToken").value = "";
+      connectTo(created.id, true);
       syncMessage("自動同期を開始しました。もう一方の端末でも同じトークンを入れると、この保存先に自動でつながります。", "ok");
     }
   } catch (e) {
@@ -410,16 +421,11 @@ window.addEventListener("pagehide", () => {
     fetch(GIST_API + "/gists/" + gist.id, {
       method: "PATCH",
       keepalive: true,
-      headers: {
-        "Authorization": "Bearer " + gist.token,
-        "Accept": "application/vnd.github+json",
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ files: { [GIST_FILE]: { content: JSON.stringify(buildPayload()) } } })
+      headers: gistHeaders(),
+      body: JSON.stringify({ files: gistFiles() })
     });
   } catch (e) { /* 失敗しても次回起動時に同期される */ }
 });
-
 
 // 進捗が保存されたら自動同期を予約する（core.js の save から呼ばれる）
 onProgressSaved = scheduleGistPush;

@@ -18,7 +18,7 @@ let cardsBuilt = false;
 // セクションの見出しだけを取り出す（"1.02/アクセス権（パーミッション）" → "アクセス権（パーミッション）"）
 
 function buildCardSelect() {
-  const sel = document.getElementById("cardSec");
+  const sel = $("cardSec");
   sel.innerHTML = "";
 
   const all = document.createElement("option");
@@ -81,36 +81,36 @@ function updateCardProgress() {
   const target = CARDS.filter(cardMatch);
   const done = target.filter(c => cardsLearned[c.id]).length;
   const p = target.length ? Math.round((done / target.length) * 100) : 0;
-  document.getElementById("cardProgress").innerHTML =
+  $("cardProgress").innerHTML =
     html`覚えた <b>${done}</b> / ${target.length} 枚（${p}%）`;
 }
 
 function renderCard() {
   const empty = !cardDeck.length;
-  document.getElementById("cardEmpty").hidden = !empty;
-  document.getElementById("cardSingle").hidden = empty || cardMode !== "card";
-  document.getElementById("cardList").hidden = empty || cardMode !== "list";
+  $("cardEmpty").hidden = !empty;
+  $("cardSingle").hidden = empty || cardMode !== "card";
+  $("cardList").hidden = empty || cardMode !== "list";
   updateCardProgress();
   if (empty) return;
 
   if (cardMode === "list") { renderCardList(); return; }
 
   const c = cardDeck[cardIdx];
-  document.getElementById("fcSec").textContent = secTitle(c.sec);
-  document.getElementById("fcTerm").textContent = c.term;
-  document.getElementById("fcMean").textContent = c.mean;
-  document.getElementById("fcMean").hidden = !cardShown;
-  document.getElementById("fcTap").hidden = cardShown;
-  document.getElementById("fcLearned").checked = !!cardsLearned[c.id];
-  document.getElementById("flashcard").classList.toggle("is-learned", !!cardsLearned[c.id]);
-  document.getElementById("fcPos").textContent = (cardIdx + 1) + " / " + cardDeck.length;
-  document.getElementById("btnCardPrev").disabled = cardIdx === 0;
-  document.getElementById("btnCardNext").textContent =
+  $("fcSec").textContent = secTitle(c.sec);
+  $("fcTerm").textContent = c.term;
+  $("fcMean").textContent = c.mean;
+  $("fcMean").hidden = !cardShown;
+  $("fcTap").hidden = cardShown;
+  $("fcLearned").checked = !!cardsLearned[c.id];
+  $("flashcard").classList.toggle("is-learned", !!cardsLearned[c.id]);
+  $("fcPos").textContent = (cardIdx + 1) + " / " + cardDeck.length;
+  $("btnCardPrev").disabled = cardIdx === 0;
+  $("btnCardNext").textContent =
     cardIdx === cardDeck.length - 1 ? "最初へ戻る ↺" : "次へ →";
 }
 
 function renderCardList() {
-  const box = document.getElementById("cardList");
+  const box = $("cardList");
   box.innerHTML = "";
   let lastSec = null;
 
@@ -153,7 +153,7 @@ function showCards(sec) {
   if (!cardsBuilt) { buildCardSelect(); cardsBuilt = true; }
   if (sec !== undefined) {
     cardSec = sec;
-    document.getElementById("cardSec").value = sec || "";
+    $("cardSec").value = sec || "";
   }
   cardShown = false;
   buildDeck(false);
@@ -169,7 +169,7 @@ function refreshCardsUI() {
 }
 
 /* ---------------- 操作 ---------------- */
-document.getElementById("cardSec").addEventListener("change", (e) => {
+$("cardSec").addEventListener("change", (e) => {
   cardSec = e.target.value || null;
   cardShown = false;
   buildDeck(false);
@@ -177,7 +177,7 @@ document.getElementById("cardSec").addEventListener("change", (e) => {
   window.scrollTo(0, 0);
 });
 
-document.getElementById("cardModeChips").addEventListener("click", (e) => {
+$("cardModeChips").addEventListener("click", (e) => {
   const chip = e.target.closest(".chip");
   if (!chip) return;
 
@@ -197,41 +197,41 @@ document.getElementById("cardModeChips").addEventListener("click", (e) => {
   renderCard();
 });
 
-document.getElementById("optHideKnown").addEventListener("change", (e) => {
+$("optHideKnown").addEventListener("change", (e) => {
   hideKnown = e.target.checked;
   buildDeck(true);
   renderCard();
 });
 
-document.getElementById("flashcard").addEventListener("click", (e) => {
+$("flashcard").addEventListener("click", (e) => {
   if (e.target.closest("input,label")) return;
   cardShown = !cardShown;
   renderCard();
 });
 
-document.getElementById("btnCardPrev").addEventListener("click", () => moveCard(-1));
-document.getElementById("btnCardNext").addEventListener("click", () => moveCard(1));
+$("btnCardPrev").addEventListener("click", () => moveCard(-1));
+$("btnCardNext").addEventListener("click", () => moveCard(1));
 
-document.getElementById("fcLearned").addEventListener("change", (e) => {
+$("fcLearned").addEventListener("change", (e) => {
   const c = cardDeck[cardIdx];
   if (!c) return;
   setCardLearned(c.id, e.target.checked);
-  document.getElementById("flashcard").classList.toggle("is-learned", e.target.checked);
+  $("flashcard").classList.toggle("is-learned", e.target.checked);
 });
 
-document.getElementById("cardList").addEventListener("change", (e) => {
+$("cardList").addEventListener("change", (e) => {
   const box = e.target.closest(".card-box");
   if (!box) return;
   setCardLearned(Number(box.dataset.id), box.checked);
   box.closest(".card-row").classList.toggle("is-learned", box.checked);
 });
 
-document.getElementById("btnCardsTop").addEventListener("click", () => showCards());
-document.getElementById("btnCardsHome").addEventListener("click", () => renderHome());
+$("btnCardsTop").addEventListener("click", () => showCards());
+$("btnCardsHome").addEventListener("click", () => renderHome());
 
 // キーボード操作（単語帳の1枚ずつ表示のときだけ）
 document.addEventListener("keydown", (e) => {
-  if (document.getElementById("screen-cards").hidden) return;
+  if (currentScreen() !== "cards") return;
   if (cardMode !== "card") return;
   if (isTyping(e.target) || e.ctrlKey || e.altKey || e.metaKey) return;
 
@@ -249,7 +249,7 @@ document.addEventListener("keydown", (e) => {
 
 // ホーム画面の入口
 function renderCardJump() {
-  const box = document.getElementById("cardJump");
+  const box = $("cardJump");
   if (!box) return;
   box.innerHTML = "";
 

@@ -447,6 +447,14 @@ function parseNotes(md) {
 }
 
 const NOTE_SECTIONS = parseNotes(typeof NOTES_MD === "string" ? NOTES_MD : "");
+const NOTE_THEMES = [...new Set(NOTE_SECTIONS.map(s => s.theme))];   // 主題の並び（"00", "1.01", …）
+
+// 節のキー（"主題/見出し"）。問題データの sec と対応する
+function noteKey(sec) { return sec.theme + "/" + sec.title; }
+
+const NOTE_BY_KEY = new Map(NOTE_SECTIONS.map(s => [noteKey(s), s]));
+function noteByKey(key) { return NOTE_BY_KEY.get(key) || null; }
+
 let noteTheme = null;          // 絞り込み中の主題（null = すべて）
 let noteStatusFilter = "";     // 状態での絞り込み（"" = すべて / learned / weak / unseen）
 let showKeyPoints  = true;     // 重要語に印を付けるか
@@ -457,8 +465,8 @@ function noteThemeLabel(t) {
   return t === "00" ? "全体" : t;
 }
 
-// 節のキー（"主題/見出し"）。問題データの sec と対応する
-function noteKey(sec) { return sec.theme + "/" + sec.title; }
+/* ---------------- 覚えた／苦手 ----------------
+   learned と noteWeak（core.js）に節キーで記録する。両方には付けない。 */
 
 // 節の状態：覚えた / 苦手 / 未確認（どちらのチェックも付いていない）
 function noteStatus(key) {
@@ -466,7 +474,16 @@ function noteStatus(key) {
   if (noteWeak[key]) return "weak";
   return "unseen";
 }
-const NOTE_STATUS_MARK = { learned: "✓ ", weak: "△ ", unseen: "" };
+const NOTE_STATUS_MARK  = { learned: "✓ ", weak: "△ ", unseen: "" };
+const NOTE_STATUS_LABEL = { "": "すべて", learned: "覚えた", weak: "苦手", unseen: "未確認" };
+
+// 覚えた（kind = "learned"）／苦手（"weak"）を付け外しする。片方を付けたらもう片方は外す
+function setNoteMark(key, kind, on) {
+  const [mine, other] = kind === "weak" ? [noteWeak, learned] : [learned, noteWeak];
+  if (on) { mine[key] = true; delete other[key]; } else delete mine[key];
+  save(WEAK_KEY, noteWeak);
+  save(LEARNED_KEY, learned);
+}
 
 function noteStatusOk(key) {
   return !noteStatusFilter || noteStatus(key) === noteStatusFilter;
@@ -474,14 +491,19 @@ function noteStatusOk(key) {
 
 // 節の重要度（3=最重要 / 2=重要 / 1=補足）
 function noteStars(key) { return NOTE_STARS[key] || 2; }
+function noteStarsHtml(key) {
+  const n = noteStars(key);
+  return html`<span class="note-star star-${n}" title="重要度">${starMarks(n)}</span>`;
+}
 
-// その節に紐づく問題の数
-function sectionQuestionCount(key) {
-  return QUESTIONS.filter(q => q.sec === key).length;
+// 節の本文（図解があれば先頭に付ける）。ノート画面・復習おすすめ・ノートのパネルで共通
+function noteBodyHtml(sec) {
+  const fig = NOTE_FIGURES[sec.title];
+  return (fig ? html`<div class="note-fig">${raw(fig)}</div>` : "") + mdToHtml(sec.lines);
 }
 
 function buildNotes() {
-  const body = document.getElementById("notesBody");
+  const body = $("notesBody");
   body.innerHTML = "";
 
   let lastTheme = null;
@@ -497,7 +519,7 @@ function buildNotes() {
     }
 
     const key = noteKey(sec);
-    const n = sectionQuestionCount(key);
+    const n = secQuestionIds(key).length;
 
     const art = document.createElement("article");
     art.className = "note-sec";
@@ -505,24 +527,20 @@ function buildNotes() {
     art.dataset.theme = sec.theme;
     art.dataset.title = sec.title;
     art.dataset.key = key;
-    const stars = noteStars(key);
-    art.dataset.stars = stars;
+    art.dataset.stars = noteStars(key);
 
-    const fig = NOTE_FIGURES[sec.title];
     art.innerHTML = html`
       <div class="note-sec-head">
-        <h3><span class="note-star star-${stars}" title="重要度">${"★★★".slice(0, stars)}</span>${sec.title}</h3>
+        <h3>${raw(noteStarsHtml(key))}${sec.title}</h3>
         <div class="note-sec-act">
           ${n > 0 && raw(html`<button class="btn btn-mini note-quiz" data-key="${key}">問題を解く（${n}問）</button>`)}
           <label class="learn-check"><input type="checkbox" class="learn-box" data-key="${key}"><span>覚えた</span></label>
           <label class="learn-check weak-check"><input type="checkbox" class="weak-box" data-key="${key}"><span>苦手</span></label>
         </div>
       </div>
-      ${fig && raw(html`<div class="note-fig">${raw(fig)}</div>`)}
-      ${raw(mdToHtml(sec.lines))}`;
+      ${raw(noteBodyHtml(sec))}`;
     body.appendChild(art);
   });
-
 
   refreshLearnedUI();
   buildNoteToc();
@@ -547,7 +565,7 @@ function refreshLearnedUI() {
 }
 
 function updateLearnProgress() {
-  const el = document.getElementById("learnProgress");
+  const el = $("learnProgress");
   if (!el) return;
   const n = { learned: 0, weak: 0, unseen: 0 };
   NOTE_SECTIONS.forEach(s => { n[noteStatus(noteKey(s))]++; });
@@ -565,43 +583,45 @@ function renderStatusFilter() {
     n[""]++;
     n[noteStatus(noteKey(s))]++;
   });
-  const label = { "": "すべて", learned: "覚えた", weak: "苦手", unseen: "未確認" };
   document.querySelectorAll("#noteStatusFilter .chip").forEach(b => {
     const st = b.dataset.status;
     b.classList.toggle("is-on", st === noteStatusFilter);
     b.setAttribute("aria-pressed", st === noteStatusFilter);
-    b.textContent = label[st] + " " + n[st];
+    b.textContent = NOTE_STATUS_LABEL[st] + " " + n[st];
   });
 
   // 折りたたんだときの見出しに、いまの絞り込みを出す
   const on = [
     noteTheme && noteThemeLabel(noteTheme),
-    noteStatusFilter && label[noteStatusFilter],
+    noteStatusFilter && NOTE_STATUS_LABEL[noteStatusFilter],
     onlyTopStars && "★★★"
   ].filter(Boolean);
   $("noteFilterSum").textContent = on.length ? "：" + on.join("・") : "";
 }
 
-
-// 見出しの高さを CSS に渡す（目次から飛んだとき、節の頭が見出しに隠れないように）
-if (window.ResizeObserver) {
-  new ResizeObserver(([e]) => {
-    if (e.contentRect.height) document.documentElement.style.setProperty("--notes-head-h", Math.ceil(e.target.getBoundingClientRect().height) + "px");
-  }).observe(document.querySelector("#screen-notes .notes-head"));
+// ノートの節から、その範囲だけの問題を出題する（結果画面からその節へ戻れる）
+function startSectionQuiz(key) {
+  const ids = secQuestionIds(key);
+  if (ids.length) beginSession(shuffle(ids), key);
 }
 
-// ノートの節から、その範囲だけの問題を出題する
-function startSectionQuiz(key) {
-  const ids = QUESTIONS.filter(q => q.sec === key).map(q => q.id);
-  if (!ids.length) return;
-  startSession(shuffle(ids));
-  session.from = key;
-  save(SESSION_KEY, session);
-  renderQuiz();
+// ノート画面を開いて、その節まで移る（ほかの画面から「ノートで開く」とき）
+function showNoteSection(key) {
+  showNotes();
+  const el = document.querySelector('#notesBody .note-sec[data-key="' + CSS.escape(key) + '"]');
+  if (!el) return;
+  if (el.hidden) {             // 絞り込みや検索で隠れているときは、解除してから出す
+    noteStatusFilter = "";
+    onlyTopStars = false;
+    $("optOnlyTopStars").checked = false;
+    $("noteSearch").value = "";
+    showNotes(null);
+  }
+  el.scrollIntoView({ block: "start" });
 }
 
 function buildNoteToc() {
-  const box = document.getElementById("noteTocList");
+  const box = $("noteTocList");
   box.innerHTML = "";
   let lastTheme = null;
   NOTE_SECTIONS.forEach((sec, idx) => {
@@ -619,25 +639,27 @@ function buildNoteToc() {
     const a = document.createElement("button");
     const st = noteStatus(key);
     a.className = "toc-link is-" + st;
-    const stars = noteStars(key);
-    a.innerHTML = html`${NOTE_STATUS_MARK[st]}<span class="note-star star-${stars}">${"★★★".slice(0, stars)}</span>${sec.title}`;
-    a.addEventListener("click", () => {
-      const side = notesSideMode();
-      if (!side) document.getElementById("noteToc").open = false;   // サイドバーでは開いたままにする
-      const el = document.getElementById("note-sec-" + idx);
-      if (!el) return;
-      // 目次を閉じた後の見出しの高さで位置を決める（scroll-margin は閉じる前の高さのままのことがある）
-      const cover = document.querySelector(".topbar").offsetHeight +
-                    (side ? 4 : document.querySelector("#screen-notes .notes-head").offsetHeight);
-      const y = el.getBoundingClientRect().top + window.scrollY - cover - 8;
-      window.scrollTo({ top: y, behavior: "smooth" });
-    });
+    a.innerHTML = NOTE_STATUS_MARK[st] + noteStarsHtml(key) + esc(sec.title);
+    a.addEventListener("click", () => jumpFromToc(idx));
     box.appendChild(a);
   });
 }
 
+// 目次から節へ移る
+function jumpFromToc(idx) {
+  const side = notesSideMode();
+  if (!side) $("noteToc").open = false;   // サイドバーでは開いたままにする
+  const el = $("note-sec-" + idx);
+  if (!el) return;
+  // 目次を閉じた後の見出しの高さで位置を決める（scroll-margin は閉じる前の高さのままのことがある）
+  const cover = document.querySelector(".topbar").offsetHeight +
+                (side ? 4 : document.querySelector("#screen-notes .notes-head").offsetHeight);
+  const y = el.getBoundingClientRect().top + window.scrollY - cover - 8;
+  window.scrollTo({ top: y, behavior: "smooth" });
+}
+
 function filterNotes() {
-  const q = document.getElementById("noteSearch").value.trim().toLowerCase();
+  const q = $("noteSearch").value.trim().toLowerCase();
   let hit = 0;
 
   document.querySelectorAll("#notesBody .note-sec").forEach(el => {
@@ -657,8 +679,7 @@ function filterNotes() {
     h.hidden = !any;
   });
 
-  const empty = document.getElementById("noteEmpty");
-  empty.hidden = hit > 0;
+  $("noteEmpty").hidden = hit > 0;
   renderStatusFilter();
   layoutNotes();           // 表示する節が変わると高さも変わるので、2列の割り振りをやり直す
 }
@@ -692,9 +713,8 @@ function layoutNotes() {
   $("screen-notes").classList.toggle("is-compact", compact);
   if (compact !== noteCompact) { $("noteFilter").open = !compact; noteCompact = compact; }
   const old = [...body.querySelectorAll(".note-group")];
-  const themes = [...new Set(NOTE_SECTIONS.map(s => s.theme))];
 
-  for (const t of themes) {
+  for (const t of NOTE_THEMES) {
     body.appendChild($("note-theme-" + t));
     const arts = [];
     NOTE_SECTIONS.forEach((s, i) => { if (s.theme === t) arts.push($("note-sec-" + i)); });
@@ -755,19 +775,24 @@ function noteTwoCols(arts, info) {
   return group;
 }
 
-// 幅が変わったとき（ウィンドウの大きさ・コマンド表の開閉・画面の切り替え）に並べ直す
 if (window.ResizeObserver) {
+  // 幅が変わったとき（ウィンドウの大きさ・コマンド表の開閉・画面の切り替え）に並べ直す
   new ResizeObserver(() => {
     const w = $("notesBody").clientWidth;
     if (w && w !== noteLayoutWidth) layoutNotes();
   }).observe($("notesBody"));
+
+  // 見出しの高さを CSS に渡す（ほかの画面から節へ飛んだとき、節の頭が見出しに隠れないように）
+  new ResizeObserver(([e]) => {
+    if (e.contentRect.height) {
+      document.documentElement.style.setProperty("--notes-head-h", Math.ceil(e.target.getBoundingClientRect().height) + "px");
+    }
+  }).observe(document.querySelector("#screen-notes .notes-head"));
 }
 
 function renderNoteThemes() {
-  const box = document.getElementById("noteThemes");
+  const box = $("noteThemes");
   box.innerHTML = "";
-  const themes = [];
-  NOTE_SECTIONS.forEach(s => { if (!themes.includes(s.theme)) themes.push(s.theme); });
 
   const mk = (label, value) => {
     const b = document.createElement("button");
@@ -783,7 +808,7 @@ function renderNoteThemes() {
     box.appendChild(b);
   };
   mk("すべて", null);
-  themes.forEach(t => mk(noteThemeLabel(t), t));
+  NOTE_THEMES.forEach(t => mk(noteThemeLabel(t), t));
 }
 
 function showNotes(theme) {
@@ -798,11 +823,9 @@ function showNotes(theme) {
 
 // ホーム画面に主題ごとの入口を並べる
 function renderNoteJump() {
-  const box = document.getElementById("noteJump");
+  const box = $("noteJump");
   if (!box) return;
   box.innerHTML = "";
-  const themes = [];
-  NOTE_SECTIONS.forEach(s => { if (!themes.includes(s.theme)) themes.push(s.theme); });
 
   const mk = (label, value) => {
     const b = document.createElement("button");
@@ -812,7 +835,7 @@ function renderNoteJump() {
     box.appendChild(b);
   };
   mk("ノートを開く", null);
-  themes.forEach(t => {
+  NOTE_THEMES.forEach(t => {
     if (t === "00") return;
     const sec = NOTE_SECTIONS.find(s => s.theme === t);
     const name = sec.themeTitle.replace(/^主題\s*\d+\.\d+\s*/, "");
@@ -820,10 +843,10 @@ function renderNoteJump() {
   });
 }
 
-document.getElementById("btnNotesTop").addEventListener("click", () => showNotes());
-document.getElementById("btnNotesHome").addEventListener("click", () => renderHome());
-document.getElementById("noteSearch").addEventListener("input", filterNotes);
-document.getElementById("noteStatusFilter").addEventListener("click", (e) => {
+$("btnNotesTop").addEventListener("click", () => showNotes());
+$("btnNotesHome").addEventListener("click", () => renderHome());
+$("noteSearch").addEventListener("input", filterNotes);
+$("noteStatusFilter").addEventListener("click", (e) => {
   const b = e.target.closest(".chip");
   if (!b) return;
   // 選択中のボタンをもう一度押したら「すべて」に戻す
@@ -832,12 +855,12 @@ document.getElementById("noteStatusFilter").addEventListener("click", (e) => {
   filterNotes();
   window.scrollTo(0, 0);
 });
-document.getElementById("optOnlyTopStars").addEventListener("change", (e) => {
+$("optOnlyTopStars").addEventListener("change", (e) => {
   onlyTopStars = e.target.checked;
   buildNoteToc();
   filterNotes();
 });
-document.getElementById("optShowKeyPoints").addEventListener("change", (e) => {
+$("optShowKeyPoints").addEventListener("change", (e) => {
   showKeyPoints = e.target.checked;
   notesBuilt = false;          // 本文を作り直して印を付け直す
   buildNotes();
@@ -846,22 +869,16 @@ document.getElementById("optShowKeyPoints").addEventListener("change", (e) => {
 renderNoteJump();
 
 /* ノート本文のチェックボックスと出題ボタン（委譲で一度だけ登録する） */
-document.getElementById("notesBody").addEventListener("change", (e) => {
+$("notesBody").addEventListener("change", (e) => {
   const box = e.target.closest(".learn-box, .weak-box");
   if (!box) return;
-  const key = box.dataset.key;
-  const isWeak = box.classList.contains("weak-box");
-  const [mine, other] = isWeak ? [noteWeak, learned] : [learned, noteWeak];
-  // 覚えた と 苦手 は同時に付けない。片方を付けたらもう片方は外す
-  if (box.checked) { mine[key] = true; delete other[key]; } else delete mine[key];
-  save(WEAK_KEY, noteWeak);
-  save(LEARNED_KEY, learned);
+  setNoteMark(box.dataset.key, box.classList.contains("weak-box") ? "weak" : "learned", box.checked);
   paintNoteSec(box.closest(".note-sec"));
   updateLearnProgress();
   buildNoteToc();          // 目次の印も更新する
   renderStatusFilter();    // 絞り込み中でも節はすぐには隠さない（押し間違えを直せるように）
 });
-document.getElementById("notesBody").addEventListener("click", (e) => {
+$("notesBody").addEventListener("click", (e) => {
   const btn = e.target.closest(".note-quiz");
   if (!btn) return;
   startSectionQuiz(btn.dataset.key);

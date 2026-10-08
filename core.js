@@ -146,11 +146,31 @@ function isTyping(el) {
 function secTheme(key) { const i = key.indexOf("/"); return i < 0 ? "00" : key.slice(0, i); }
 function secTitle(key) { const i = key.indexOf("/"); return i < 0 ? key : key.slice(i + 1); }
 
+/* ---------------- 問題データの索引 ----------------
+   データファイルはこのファイルより後に読み込まれるので、初めて使うときに作る。
+------------------------------------------------------ */
+let questionsBySecCache = null;
+
+// 節キー → その節の問題IDの配列（問題データの並び順）
+function questionsBySec() {
+  if (!questionsBySecCache) {
+    questionsBySecCache = new Map();
+    for (const q of QUESTIONS) {
+      if (!q.sec) continue;
+      if (!questionsBySecCache.has(q.sec)) questionsBySecCache.set(q.sec, []);
+      questionsBySecCache.get(q.sec).push(q.id);
+    }
+  }
+  return questionsBySecCache;
+}
+function secQuestionIds(key) { return questionsBySec().get(key) || []; }
+
 /* ---------------- 問題の表示に使う道具 ---------------- */
 const KEYS = ["A", "B", "C", "D", "E", "F", "G", "H"];   // 選択肢の記号
 
 // 重要度の表示（3=必出／2=重要／1=補足）
-function impStars(n) { return "★★★".slice(0, n) + "☆☆☆".slice(0, 3 - n); }
+function starMarks(n) { return "★★★".slice(0, n); }
+function impStars(n) { return starMarks(n) + "☆☆☆".slice(0, 3 - n); }
 function impLabel(n) { return n === 3 ? "必出" : n === 2 ? "重要" : "補足"; }
 
 /* ---------------- 累計成績（stats）の読み書き ----------------
@@ -204,6 +224,14 @@ function qRank(id) {
 
 // その問題の現在の連続正解数
 function qStreak(id) { return statOf(id).s; }
+
+// 問題IDの集まりを到達ランクごとに数える
+function rankCounts(ids) {
+  const n = { untouched: 0, stumbled: 0, solved: 0, streak: 0 };
+  const name = ["untouched", "stumbled", "solved", "streak"];
+  for (const id of ids) n[name[qRank(id)]]++;
+  return n;
+}
 
 /* ---------------- 復習の間隔（間隔反復） ----------------
    連続正解が伸びるほど、次に出すまでの日数を空ける。
@@ -266,11 +294,32 @@ function tally(s) {
   let correct = 0, assist = 0, wrong = 0;
   for (const r of s.results) {
     if (r === "correct") correct++;
-    else if (r === "assist") assist++;      // コマンド表を参照しての正解
+    else if (r === "assist") assist++;      // コマンド表やノートを参照しての正解
     else if (r === "wrong") wrong++;
   }
   const total = s.order.length;
   return { total, correct, assist, wrong, skip: total - correct - assist - wrong };
+}
+
+// 上部バーなどに出す1行の集計
+function tallyLine(t) {
+  return "正解 " + t.correct + " / 参照 " + t.assist + " / 不正解 " + t.wrong + " / 未回答 " + t.skip;
+}
+
+/*
+   集計の数字と帯グラフを、id の頭をそろえた要素へ書き込む。
+     paintTally(t, "stat", "bar") → #statTotal, #statCorrect … と #barCorrect …の幅
+   その画面に無い要素（例：出題画面の合計）は飛ばす。
+*/
+const TALLY_PARTS = ["total", "correct", "assist", "wrong", "skip"];
+function paintTally(t, numPrefix, barPrefix) {
+  const cap = (k) => k[0].toUpperCase() + k.slice(1);
+  for (const k of TALLY_PARTS) {
+    const num = $(numPrefix + cap(k));
+    if (num) num.textContent = t[k];
+    const bar = barPrefix && k !== "total" && $(barPrefix + cap(k));
+    if (bar) bar.style.width = pct(t[k], t.total) + "%";
+  }
 }
 
 /* ---------------- 画面の変化を知らせる ----------------
@@ -290,6 +339,9 @@ function show(name) {
   notifyViewChanged();
   window.scrollTo(0, 0);
 }
+
+// いま表示している画面の名前（SCREENS のどれか）
+function currentScreen() { return document.body.dataset.screen || "home"; }
 
 // 上部バーの高さを CSS に渡す（ノッチの有無や文字の折り返しで変わるため、実測する）
 // ノート・単語帳の見出しは、この高さの分だけ下に貼り付く

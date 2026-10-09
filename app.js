@@ -748,11 +748,13 @@ document.addEventListener("keydown", (e) => {
 (function init() {
   normalizeConfig(config);
 
-  // 試験を選ぶ前から使っていた端末（記録がある）は 101 として続ける。記録が無ければ選択画面から
-  if (!examId && hasProgress()) { examId = "101"; save(EXAM_KEY, examId); }
+  // もう無い試験が保存されていたら、選び直してもらう
+  if (examId && !EXAMS[examId]) examId = null;
+  // 試験を選ぶ前から使っていた端末（記録がある）は、最初に登録した試験（101）として続ける。記録が無ければ選択画面から
+  if (!examId && hasProgress()) { examId = EXAM_ORDER[0]; save(EXAM_KEY, examId); }
 
-  // 保存済みセッションが壊れていたら破棄する
-  session = normalizeSession(session);
+  // 学習中の試験の、保存済みのセッションを読み込む（壊れていたら破棄する）
+  session = normalizeSession(load(sessionKey(), null));
   if (!session) remove(sessionKey());
 
   applyConfigToForm();

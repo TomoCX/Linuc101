@@ -23,7 +23,7 @@ function normalizeSession(s, exam) {
 // 保存済みの出題設定を、いまのカテゴリ・項目に合わせて整える（起動時と取り込み時）
 function normalizeConfig(c) {
   c.cats = (c.cats || []).filter(id => CATEGORIES[id]);
-  // 試験ごとに、1つも選ばれていなければ全部を選ぶ（カテゴリの追加・102 の追加に追随）
+  // 試験ごとに、1つも選ばれていなければ全部を選ぶ（カテゴリや試験が増えたときに追随）
   for (const e of Object.values(EXAMS)) {
     if (!c.cats.some(id => e.cats.includes(id))) c.cats.push(...e.cats.filter(id => CATEGORIES[id]));
   }
@@ -31,7 +31,15 @@ function normalizeConfig(c) {
   return c;
 }
 
-// 試験ごとの進行中のセッション（学習中の試験はメモリ上のもの、もう一方は保存領域から）
+// 古い版のデータのセッション（session ＝ 101、session102 ＝ 102）を、試験ID → セッションの形にする
+function legacySessions(data) {
+  const s = {};
+  if ("session" in data) s["101"] = data.session;
+  if ("session102" in data) s["102"] = data.session102;
+  return s;
+}
+
+// 試験ごとの進行中のセッション（学習中の試験はメモリ上のもの、ほかは保存領域から）
 function sessionOf(exam) {
   return exam === currentExam() ? session : load(sessionKey(exam), null);
 }
@@ -46,8 +54,8 @@ function buildPayload() {
     savedAt: new Date(lastChangeAt || Date.now()).toISOString(),
     answered: answered,
     questions: QUESTIONS.length,
-    session: sessionOf("101"),       // 旧版との互換のため、101 のセッションは session に入れる
-    session102: sessionOf("102"),
+    sessions: Object.fromEntries(EXAM_ORDER.map(id => [id, sessionOf(id)])),   // 試験ID → 進行中のセッション
+    session: sessionOf(EXAM_ORDER[0]),   // 試験を分ける前の版でも読めるよう、最初の試験（101）の分はここにも入れる
     stats: stats,
     config: config,
     learned: learned,
@@ -132,10 +140,10 @@ function applyPayload(data, silent) {
   cardsLearned = (data.cards && typeof data.cards === "object") ? data.cards : {};
   save(CARDS_KEY, cardsLearned);
 
-  // 進行中のセッションは試験ごとに。102 を持たない旧版のデータからは、この端末の 102 を消さない
-  for (const [exam, field] of [["101", "session"], ["102", "session102"]]) {
-    if (!(field in data)) continue;
-    const s = normalizeSession(data[field], exam);
+  // 進行中のセッションは試験ごとに。データに無い試験（古い版のデータなど）は、この端末の分を残す
+  for (const [exam, raw] of Object.entries(data.sessions || legacySessions(data))) {
+    if (!EXAMS[exam]) continue;
+    const s = normalizeSession(raw, exam);
     if (s) save(sessionKey(exam), s);
     else remove(sessionKey(exam));
   }

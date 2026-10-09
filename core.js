@@ -6,8 +6,7 @@
    ======================================================================= */
 
 /* ---------------- 保存キー ---------------- */
-const SESSION_KEY = "linuc101.session.v1";   // 進行中のセッション（101）
-const SESSION102_KEY = "linuc101.session102.v1";   // 進行中のセッション（102）
+// 進行中のセッションは試験ごとに別のキー（registerExam で決まる。101 は旧来の linuc101.session.v1）
 const EXAM_KEY    = "linuc101.exam.v1";      // 学習中の試験（端末ごと。同期しない）
 const STATS_KEY   = "linuc101.stats.v1";     // 累計成績
 const CONFIG_KEY  = "linuc101.config.v1";    // 出題設定
@@ -18,8 +17,8 @@ const STAMP_KEY   = "linuc101.stamp.v1";     // 進捗を最後に変更した�
 const GIST_KEY    = "linuc101.gist.v1";      // 自動同期の設定（トークン等）
 const HELP_OPEN_KEY = "linuc101.help.v1";    // コマンド表を開いているか
 
-// 進捗として同期・バックアップの対象になるキー
-const SYNCED_KEYS = [SESSION_KEY, SESSION102_KEY, STATS_KEY, CONFIG_KEY, LEARNED_KEY, WEAK_KEY, CARDS_KEY];
+// 進捗として同期・バックアップの対象になるキー（試験ごとのセッションのキーは registerExam が足す）
+const SYNCED_KEYS = [STATS_KEY, CONFIG_KEY, LEARNED_KEY, WEAK_KEY, CARDS_KEY];
 
 /* ---------------- 保存と読み込み ---------------- */
 function load(key, fallback) {
@@ -55,41 +54,85 @@ function save(key, val) {
   }
 }
 
-/* ---------------- 試験（101 / 102） ----------------
-   問題・ノート・単語帳は両方の試験分をまとめて読み込み、画面に出すときに
-   学習中の試験の分だけに絞る。どちらの試験かは主題の番号で決まる。
-     101 … 主題 1.01〜1.05（ノートの冒頭・直前チェックは "00"）
-     102 … 主題 1.06〜1.11（ノートの冒頭・直前チェックは "102"）
-   成績・覚えた／苦手・単語帳のチェックは ID や節キーが重ならないので共通の保存先に置き、
-   進行中のセッションだけ試験ごとに分けて持つ。
+/* ---------------- 試験の登録 ----------------
+   試験ごとのデータは exams/<試験ID>/ にまとめてあり、それぞれのファイルが
+   下の登録用の関数を呼んで、ここにある共通の入れ物へ中身を足していく。
+     exam.js       registerExam({...})          試験の名前・カテゴリ（主題）など
+     questions.js  addQuestions([...])          問題
+     notes.js      addNotes(試験ID, "...")       暗記ノート（.md から build-notes.ps1 が生成）
+     cards.js      addCards([...])              単語帳
+     keypoints.js  addNoteStars({...}) / addKeyPoints([...])   ノートの重要マーク・重要語
+     commands.js   addCommands(試験ID, [グループ], [...])        コマンド表
+     figures.js    addNoteFigures(試験ID, {...})                ノートの図解（任意）
+   画面に出すときは、学習中の試験の分だけに絞る。どの試験のものかは主題の番号で決まるので、
+   主題（カテゴリ）の番号と、問題・単語帳の ID は、すべての試験を通して重ならないようにする。
+   成績・覚えた／苦手・単語帳のチェックは共通の保存先に置き、進行中のセッションだけ試験ごとに持つ。
 ------------------------------------------------------ */
-const EXAMS = {
-  "101": { id: "101", title: "LinuC レベル1 101試験", cats: ["1.01", "1.02", "1.03", "1.04", "1.05"], intro: "00",
-           sessionKey: SESSION_KEY, searchHint: "SUID, umask, ランレベル" },
-  "102": { id: "102", title: "LinuC レベル1 102試験", cats: ["1.06", "1.07", "1.08", "1.09", "1.10", "1.11"], intro: "102",
-           sessionKey: SESSION102_KEY, searchHint: "crontab, rsyslog, sudo" }
-};
+const EXAMS = {};             // 試験ID → 定義（登録した順に EXAM_ORDER へ）
+const EXAM_ORDER = [];
+const CATEGORIES = {};        // 主題の番号 → 名前（全試験）
+const QUESTIONS = [];         // 問題（全試験）
+const CARDS = [];             // 単語帳（全試験）
+const NOTE_SOURCES = [];      // 暗記ノートの原稿 { exam, md }
+const NOTE_STARS = {};        // ノートの節キー → 重要度（書いていない節は 2）
+const KEY_POINTS = [];        // ノート本文で強調する語句
+const NOTE_FIGURES = {};      // 試験ID → { 節の見出し → 図解の SVG }
+const COMMAND_HELP = [];      // コマンド表の項目（全試験）
+const HELP_GROUPS = [];       // コマンド表のグループ（登録した順）
+const HELP_GROUP_EXAM = {};   // グループ → 試験ID
 
-let examId = EXAMS[load(EXAM_KEY, "")] ? load(EXAM_KEY, "") : null;   // まだ選んでいなければ null
+/*
+   def の中身
+     id         : 試験ID（"101" など。フォルダ名と同じにする）
+     title      : 表示名（"LinuC レベル1 101試験"）
+     categories : { 主題の番号: 名前, … }（出題範囲の一覧。番号は全試験で重ならないこと）
+     intro      : ノートで「主題」の付かない大見出し（冒頭・直前チェック）に使う番号（省略時は試験ID）
+     searchHint : ノートの検索欄に出す例（省略可）
+     sessionKey : 進行中のセッションの保存キー（省略時は linuc101.session<試験ID>.v1）
+*/
+function registerExam(def) {
+  const e = Object.assign({ intro: def.id, searchHint: "" }, def);
+  e.cats = Object.keys(def.categories);
+  e.sessionKey = def.sessionKey || "linuc101.session" + def.id + ".v1";
+  EXAMS[e.id] = e;
+  EXAM_ORDER.push(e.id);
+  Object.assign(CATEGORIES, def.categories);
+  SYNCED_KEYS.push(e.sessionKey);
+}
+function addQuestions(list) { QUESTIONS.push(...list); }
+function addCards(list) { CARDS.push(...list); }
+function addNotes(exam, md) { NOTE_SOURCES.push({ exam, md }); }
+function addNoteStars(map) { Object.assign(NOTE_STARS, map); }
+function addKeyPoints(words) { KEY_POINTS.push(...words); }
+function addNoteFigures(exam, figs) { NOTE_FIGURES[exam] = Object.assign(NOTE_FIGURES[exam] || {}, figs); }
+function addCommands(exam, groups, commands) {
+  for (const g of groups) { HELP_GROUPS.push(g); HELP_GROUP_EXAM[g] = exam; }
+  COMMAND_HELP.push(...commands);
+}
 
-function currentExam() { return examId || "101"; }
+/* ---------------- 学習中の試験 ---------------- */
+let examId = load(EXAM_KEY, null);   // まだ選んでいなければ null（存在しない試験なら app.js の初期化で null に戻す）
+
+// 学習中の試験（選ぶ前は最初に登録した試験として扱う）
+function currentExam() { return (examId && EXAMS[examId]) ? examId : EXAM_ORDER[0]; }
 function examInfo(id) { return EXAMS[id || currentExam()]; }
 
-// 主題・節キー・カテゴリが、どちらの試験のものか
+// 主題・節キー・カテゴリが、どの試験のものか
 function examOfTheme(theme) {
   for (const e of Object.values(EXAMS)) if (theme === e.intro || e.cats.includes(theme)) return e.id;
-  return "101";
+  return EXAM_ORDER[0];
 }
 function examOfSec(key) { return examOfTheme(secTheme(key)); }
 function inExam(theme) { return examOfTheme(theme) === currentExam(); }
 function isIntroTheme(theme) { return Object.values(EXAMS).some(e => e.intro === theme); }
+function helpGroupExam(group) { return HELP_GROUP_EXAM[group] || EXAM_ORDER[0]; }
 
 // 学習中の試験のセッションを読み書きする
 function sessionKey(id) { return examInfo(id).sessionKey; }
 function saveSession() { if (session) save(sessionKey(), session); }
 
 /* ---------------- アプリの状態 ---------------- */
-let session      = load(sessionKey(), null);
+let session      = null;                     // 学習中の試験の進行中のセッション（app.js の初期化で読み込む）
 let stats        = load(STATS_KEY, {});      // { 問題ID: {c:自力正解, w:不正解, a:参照正解} }
 let learned      = load(LEARNED_KEY, {});    // { "主題/見出し": true }
 let noteWeak     = load(WEAK_KEY, {});       // { "主題/見出し": true }（覚えた と同時には付かない）

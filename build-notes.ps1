@@ -1,10 +1,10 @@
 ﻿# =====================================================================
 #  暗記ノート取り込みスクリプト
 #  ---------------------------------------------------------------------
-#  ノートの原稿（.md）を読み込んで、アプリが読む .js を生成します。
-#    LinuC101_暗記まとめ.md → notes.js    （NOTES_MD）
-#    LinuC102_暗記まとめ.md → notes102.js （NOTES_MD_102）
+#  exams/<試験ID>/ にあるノートの原稿（.md）を読み込んで、
+#  同じフォルダに notes.js（addNotes("<試験ID>", "...")）を生成します。
 #  ノートを書き換えたら、このスクリプトを実行してください。
+#  （_ で始まるフォルダ＝ひな形は対象外）
 #
 #  使い方: PowerShell で   .\build-notes.ps1
 # =====================================================================
@@ -13,11 +13,13 @@ $ErrorActionPreference = "Stop"
 $dir = $PSScriptRoot
 if (-not $dir) { $dir = (Get-Location).Path }
 
-function Build-Notes($srcName, $outName, $varName) {
-  $src = "$dir\$srcName"
-  if (-not (Test-Path $src)) { throw "$src が見つかりません" }
+Write-Host ""
+foreach ($examDir in Get-ChildItem "$dir\exams" -Directory | Where-Object { $_.Name -notlike "_*" } | Sort-Object Name) {
+  $id = $examDir.Name
+  $mds = @(Get-ChildItem $examDir.FullName -Filter "*.md")
+  if ($mds.Count -ne 1) { throw "exams\$id にノートの原稿（.md）がちょうど1つ必要です（いま $($mds.Count) 個）" }
 
-  $md = [IO.File]::ReadAllText($src)
+  $md = [IO.File]::ReadAllText($mds[0].FullName)
 
   # JSON文字列として安全にエスケープする（改行・引用符・非ASCIIをすべて処理）
   $json = ConvertTo-Json -InputObject $md
@@ -27,21 +29,18 @@ function Build-Notes($srcName, $outName, $varName) {
    暗記ノート本文（自動生成ファイル）
    -----------------------------------------------------------------------
    このファイルは編集しないでください。
-   内容を変えるときは $srcName を編集して
+   内容を変えるときは $($mds[0].Name) を編集して
    build-notes.ps1 を実行し、生成し直してください。
    ======================================================================= */
 
-const $varName =
+addNotes("$id",
 "@
 
-  [IO.File]::WriteAllText("$dir\$outName", $header + $json + ";`r`n", [Text.UTF8Encoding]::new($false))
+  $out = Join-Path $examDir.FullName "notes.js"
+  [IO.File]::WriteAllText($out, $header + $json + ");`r`n", [Text.UTF8Encoding]::new($false))
 
   $lines = ($md -split "`n").Count
-  $kb = [math]::Round((Get-Item "$dir\$outName").Length / 1KB)
-  Write-Host "  $outName を生成しました（${lines} 行 / ${kb} KB）" -ForegroundColor Green
+  $kb = [math]::Round((Get-Item $out).Length / 1KB)
+  Write-Host "  exams\$id\notes.js を生成しました（$($mds[0].Name)：${lines} 行 / ${kb} KB）" -ForegroundColor Green
 }
-
-Write-Host ""
-Build-Notes "LinuC101_暗記まとめ.md" "notes.js"    "NOTES_MD"
-Build-Notes "LinuC102_暗記まとめ.md" "notes102.js" "NOTES_MD_102"
 Write-Host ""

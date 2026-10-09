@@ -1331,8 +1331,9 @@ const IMPORTANT_EXTRA = [
   for (const q of IMPORTANT_EXTRA) {
     if (!map.has(q.id)) { QUESTIONS.push(q); map.set(q.id, q); }
   }
-  // 重要度を割り当てる（未指定は 2 とする）
+  // 重要度を割り当てる（101 の問題だけ。未指定は 2 とする）
+  const mine = EXAMS["101"].cats;
   for (const q of QUESTIONS) {
-    if (q.imp === undefined) q.imp = IMPORTANCE[q.id] || 2;
+    if (mine.includes(q.cat) && q.imp === undefined) q.imp = IMPORTANCE[q.id] || 2;
   }
 })();

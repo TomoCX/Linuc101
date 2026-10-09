@@ -8,26 +8,22 @@
    進捗そのものは localStorage にあるので、ここでは扱わない。
    ======================================================================= */
 
-const CACHE = "linuc101-shell-v3";
+const CACHE = "linuc101-shell-v4";
 
-// 最初にまとめて保存しておくもの（index.html が読み込むファイル一式）
-const SHELL = [
-  "./",
-  "./index.html",
-  "./style.css",
-  "./manifest.json",
-  "./auth.js", "./core.js",
-  "./questions.js", "./questions-sec.js", "./questions102.js", "./commands.js",
-  "./notes.js", "./notes102.js", "./cards.js", "./cards102.js", "./keypoints.js",
-  "./notes-view.js", "./cards-view.js", "./glossary.js", "./review-view.js", "./note-panel-view.js",
-  "./help-view.js", "./sync-view.js", "./ai-view.js", "./exam-view.js", "./app.js",
-  "./icon-192.png", "./icon-512.png"
-];
+// 最初にまとめて保存しておくもの。スクリプトは index.html から読み取るので、
+// 試験やファイルを増やしてもこのファイルを直す必要はない
+const SHELL = ["./", "./index.html", "./style.css", "./manifest.json", "./icon-192.png", "./icon-512.png"];
+
+async function shellFiles() {
+  const html = await (await fetch("./index.html", { cache: "no-store" })).text();
+  const scripts = [...html.matchAll(/<script src="([^"]+)"/g)].map(m => "./" + m[1]);
+  return SHELL.concat(scripts);
+}
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
-    caches.open(CACHE)
-      .then(c => c.addAll(SHELL))
+    Promise.all([caches.open(CACHE), shellFiles()])
+      .then(([c, files]) => c.addAll(files))
       .then(() => self.skipWaiting())
   );
 });

@@ -72,7 +72,7 @@ for (const [id, kind] of [["npLearned", "learned"], ["npWeak", "weak"]]) {
 $("btnNpOpenNotes").addEventListener("click", () => {
   const key = notePanelKey;
   closeNotePanel();
-  if (session) save(SESSION_KEY, session);
+  saveSession();
   showNoteSection(key);
 });
 

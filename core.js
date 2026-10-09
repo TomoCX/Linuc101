@@ -6,7 +6,9 @@
    ======================================================================= */
 
 /* ---------------- 保存キー ---------------- */
-const SESSION_KEY = "linuc101.session.v1";   // 進行中のセッション
+const SESSION_KEY = "linuc101.session.v1";   // 進行中のセッション（101）
+const SESSION102_KEY = "linuc101.session102.v1";   // 進行中のセッション（102）
+const EXAM_KEY    = "linuc101.exam.v1";      // 学習中の試験（端末ごと。同期しない）
 const STATS_KEY   = "linuc101.stats.v1";     // 累計成績
 const CONFIG_KEY  = "linuc101.config.v1";    // 出題設定
 const LEARNED_KEY = "linuc101.learned.v1";   // ノートの「覚えた」チェック
@@ -17,7 +19,7 @@ const GIST_KEY    = "linuc101.gist.v1";      // 自動同期の設定（トー�
 const HELP_OPEN_KEY = "linuc101.help.v1";    // コマンド表を開いているか
 
 // 進捗として同期・バックアップの対象になるキー
-const SYNCED_KEYS = [SESSION_KEY, STATS_KEY, CONFIG_KEY, LEARNED_KEY, WEAK_KEY, CARDS_KEY];
+const SYNCED_KEYS = [SESSION_KEY, SESSION102_KEY, STATS_KEY, CONFIG_KEY, LEARNED_KEY, WEAK_KEY, CARDS_KEY];
 
 /* ---------------- 保存と読み込み ---------------- */
 function load(key, fallback) {
@@ -53,8 +55,41 @@ function save(key, val) {
   }
 }
 
+/* ---------------- 試験（101 / 102） ----------------
+   問題・ノート・単語帳は両方の試験分をまとめて読み込み、画面に出すときに
+   学習中の試験の分だけに絞る。どちらの試験かは主題の番号で決まる。
+     101 … 主題 1.01〜1.05（ノートの冒頭・直前チェックは "00"）
+     102 … 主題 1.06〜1.11（ノートの冒頭・直前チェックは "102"）
+   成績・覚えた／苦手・単語帳のチェックは ID や節キーが重ならないので共通の保存先に置き、
+   進行中のセッションだけ試験ごとに分けて持つ。
+------------------------------------------------------ */
+const EXAMS = {
+  "101": { id: "101", title: "LinuC レベル1 101試験", cats: ["1.01", "1.02", "1.03", "1.04", "1.05"], intro: "00",
+           sessionKey: SESSION_KEY, searchHint: "SUID, umask, ランレベル" },
+  "102": { id: "102", title: "LinuC レベル1 102試験", cats: ["1.06", "1.07", "1.08", "1.09", "1.10", "1.11"], intro: "102",
+           sessionKey: SESSION102_KEY, searchHint: "crontab, rsyslog, sudo" }
+};
+
+let examId = EXAMS[load(EXAM_KEY, "")] ? load(EXAM_KEY, "") : null;   // まだ選んでいなければ null
+
+function currentExam() { return examId || "101"; }
+function examInfo(id) { return EXAMS[id || currentExam()]; }
+
+// 主題・節キー・カテゴリが、どちらの試験のものか
+function examOfTheme(theme) {
+  for (const e of Object.values(EXAMS)) if (theme === e.intro || e.cats.includes(theme)) return e.id;
+  return "101";
+}
+function examOfSec(key) { return examOfTheme(secTheme(key)); }
+function inExam(theme) { return examOfTheme(theme) === currentExam(); }
+function isIntroTheme(theme) { return Object.values(EXAMS).some(e => e.intro === theme); }
+
+// 学習中の試験のセッションを読み書きする
+function sessionKey(id) { return examInfo(id).sessionKey; }
+function saveSession() { if (session) save(sessionKey(), session); }
+
 /* ---------------- アプリの状態 ---------------- */
-let session      = load(SESSION_KEY, null);
+let session      = load(sessionKey(), null);
 let stats        = load(STATS_KEY, {});      // { 問題ID: {c:自力正解, w:不正解, a:参照正解} }
 let learned      = load(LEARNED_KEY, {});    // { "主題/見出し": true }
 let noteWeak     = load(WEAK_KEY, {});       // { "主題/見出し": true }（覚えた と同時には付かない）
@@ -164,6 +199,21 @@ function questionsBySec() {
   return questionsBySecCache;
 }
 function secQuestionIds(key) { return questionsBySec().get(key) || []; }
+
+// 試験ごとの問題・カテゴリ・単語帳（id を省くと学習中の試験）
+const examQuestionsCache = {};
+function examQuestions(id) {
+  id = id || currentExam();
+  if (!examQuestionsCache[id]) examQuestionsCache[id] = QUESTIONS.filter(q => examOfTheme(q.cat) === id);
+  return examQuestionsCache[id];
+}
+function examCategories(id) {
+  return examInfo(id).cats.filter(c => CATEGORIES[c]).map(c => [c, CATEGORIES[c]]);
+}
+function examCards(id) {
+  id = id || currentExam();
+  return CARDS.filter(c => examOfSec(c.sec) === id);
+}
 
 /* ---------------- 問題の表示に使う道具 ---------------- */
 const KEYS = ["A", "B", "C", "D", "E", "F", "G", "H"];   // 選択肢の記号
@@ -331,7 +381,7 @@ function onViewChanged(fn) { viewListeners.push(fn); }
 function notifyViewChanged() { for (const fn of viewListeners) fn(); }
 
 /* ---------------- 画面切り替え ---------------- */
-const SCREENS = ["home", "quiz", "result", "notes", "cards"];
+const SCREENS = ["select", "home", "quiz", "result", "notes", "cards"];
 
 function show(name) {
   for (const id of SCREENS) $("screen-" + id).hidden = (id !== name);

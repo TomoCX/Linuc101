@@ -2091,3 +2091,76 @@ body.note-open #helpTab { display: none; }
 }
 /* パネルの中ではカードの枠を外して、本文だけを見せる */
 .np-sec { border: none; background: none; padding: 0; margin: 0; }
+
+/* ==================================================================
+   試験の選択（101 / 102）
+================================================================== */
+/* 選択画面では、試験に結び付いた上部のボタンや端のタブを出さない */
+body[data-screen="select"] .topbar-right,
+body[data-screen="select"] .side-tab { display: none; }
+
+.select-head { text-align: center; margin: 12px auto 20px; max-width: 640px; }
+.select-title { font-size: 22px; margin: 0 0 8px; }
+.exam-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+.exam-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--text);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: .15s;
+}
+.exam-choice:hover { border-color: var(--accent); }
+.exam-choice.is-current { border-color: rgba(77, 163, 255, .6); }
+.exam-choice-head { display: flex; align-items: center; gap: 12px; }
+.exam-choice-no {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: linear-gradient(140deg, var(--accent), #7d5cff);
+  color: #0b1220;
+  font-family: Consolas, monospace;
+  font-size: 18px;
+  font-weight: 700;
+}
+.exam-choice-title { font-size: 17px; }
+.exam-choice-topics { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--muted); }
+.exam-topic { display: flex; align-items: baseline; gap: 8px; }
+.exam-choice-meta { font-size: 13px; }
+.exam-choice-progress { font-size: 12.5px; color: var(--correct); }
+.exam-choice-go { margin-top: auto; text-align: center; }
+
+/* ホームのいちばん上の「学習中の試験」 */
+.exam-bar {
+  order: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.exam-bar-label { font-size: 12px; color: var(--muted); }
+.exam-bar-name { font-size: 15px; }
+.exam-bar-range { font-size: 12px; color: var(--muted); }
+#btnExamSwitch { margin-left: auto; }
+@container (min-width: 900px) {
+  .exam-bar { grid-column: 1 / -1; }
+}

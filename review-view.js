@@ -20,6 +20,7 @@
 function recMasteryByStats() {
   const out = [];
   questionsBySec().forEach((ids, key) => {
+    if (examOfSec(key) !== currentExam()) return;      // 学習中の試験の節だけ
     const n = rankCounts(ids);
     const ok = n.streak + n.solved;
     out.push({

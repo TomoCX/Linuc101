@@ -19,25 +19,30 @@ $infos  = New-Object System.Collections.Generic.List[string]
 function ReadUtf8($name) { [IO.File]::ReadAllText("$dir\$name", [Text.Encoding]::UTF8) }
 
 # ---------------- ノートの節（"主題/見出し"） ----------------
-$md = ReadUtf8 "LinuC101_暗記まとめ.md"
+# 主題の付かない大見出し（冒頭・直前チェック）は、101 は "00"、102 は "102" として扱う（notes-view.js と同じ）
 $noteKeys = New-Object System.Collections.Generic.HashSet[string]
-$theme = "00"; $inFence = $false
-foreach ($line in ($md -split "`r?`n")) {
-  if ($line -match '^```') { $inFence = -not $inFence }
-  if ($inFence) { continue }
-  if ($line -match '^#\s+(.+)$') {
-    $theme = if ($Matches[1] -match '主題\s*(\d+\.\d+)') { $Matches[1] } else { "00" }
-    continue
+foreach ($pair in @(@("LinuC101_暗記まとめ.md", "00"), @("LinuC102_暗記まとめ.md", "102"))) {
+  $md = ReadUtf8 $pair[0]
+  $intro = $pair[1]
+  $theme = $intro; $inFence = $false; $first = $true
+  foreach ($line in ($md -split "`r?`n")) {
+    if ($line -match '^```') { $inFence = -not $inFence }
+    if ($inFence) { continue }
+    if ($line -match '^#\s+(.+)$') {
+      $title = $Matches[1].Trim()
+      $theme = if ($title -match '主題\s*(\d+\.\d+)') { $Matches[1] } else { $intro }
+      # ノート冒頭（大見出しの直後の本文）は「主題/大見出し」として扱われる
+      if ($first) { [void]$noteKeys.Add("$theme/$title"); $first = $false }
+      continue
+    }
+    if ($line -match '^##\s+(.+)$') { [void]$noteKeys.Add("$theme/" + $Matches[1].Trim()) }
   }
-  if ($line -match '^##\s+(.+)$') { [void]$noteKeys.Add("$theme/" + $Matches[1].Trim()) }
 }
-# ノート冒頭（大見出しの直後の本文）は「00/大見出し」として扱われる
-[void]$noteKeys.Add("00/LinuC レベル1 101試験 暗記まとめ")
 $infos.Add("ノートの節: $($noteKeys.Count)")
 
 # ---------------- 問題 ----------------
 $qs = New-Object System.Collections.Generic.List[object]
-foreach ($file in @("questions.js", "questions-sec.js")) {
+foreach ($file in @("questions.js", "questions-sec.js", "questions102.js")) {
   $js = ReadUtf8 $file
   # 1問 = { id: N, ... exp: "..." } のかたまり
   foreach ($m in [regex]::Matches($js, '(?s)\{\s*id:\s*(\d+),\s*cat:\s*"([^"]+)"(?:,\s*sec:\s*"([^"]+)")?(?:,\s*imp:\s*\d)?,\s*q:\s*"((?:[^"\\]|\\.)*)",\s*choices:\s*\[(.*?)\],\s*answer:\s*\[([^\]]*)\],\s*exp:\s*"((?:[^"\\]|\\.)*)"\s*\}')) {
@@ -81,7 +86,7 @@ if ($untied.Count) { $infos.Add("どの節にも紐づいていない問題（�
 $infos.Add("正解の位置（単一解答・データ上）: A=$($posCount[0]) B=$($posCount[1]) C=$($posCount[2]) D=$($posCount[3])  ※表示時にシャッフルされる")
 
 # ---------------- 単語帳 ----------------
-$cards = [regex]::Matches((ReadUtf8 "cards.js"), '\{\s*id:\s*(\d+),\s*sec:\s*"([^"]+)",\s*term:\s*"((?:[^"\\]|\\.)*)",\s*mean:\s*"((?:[^"\\]|\\.)*)"\s*\}')
+$cards = [regex]::Matches((ReadUtf8 "cards.js") + (ReadUtf8 "cards102.js"), '\{\s*id:\s*(\d+),\s*sec:\s*"([^"]+)",\s*term:\s*"((?:[^"\\]|\\.)*)",\s*mean:\s*"((?:[^"\\]|\\.)*)"\s*\}')
 $infos.Add("単語帳: $($cards.Count)")
 $cardIds = @{}
 foreach ($m in $cards) {
@@ -102,7 +107,7 @@ foreach ($m in [regex]::Matches($starsBody, '"([^"]+)":\s*(\d)')) {
 $usedSecs = New-Object System.Collections.Generic.HashSet[string]
 foreach ($q in $qs) { $s = if ($q.sec) { $q.sec } elseif ($secMap.ContainsKey($q.id)) { $secMap[$q.id] } else { "" }; if ($s) { [void]$usedSecs.Add($s) } }
 foreach ($m in $cards) { [void]$usedSecs.Add($m.Groups[2].Value) }
-$lonely = $noteKeys | Where-Object { -not $usedSecs.Contains($_) -and $_ -notlike "00/*" }
+$lonely = $noteKeys | Where-Object { -not $usedSecs.Contains($_) -and $_ -notlike "00/*" -and $_ -notlike "102/*" }
 if ($lonely) { $infos.Add("問題も単語帳も無い節: " + ($lonely -join " / ")) }
 
 # ---------------- 結果 ----------------

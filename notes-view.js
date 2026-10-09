@@ -414,10 +414,11 @@ function mdToHtml(lines) {
 
 /* ---------------- ノートの構造化 ---------------- */
 // 見出しごとに { theme, themeTitle, title, lines } へ分割する
-function parseNotes(md) {
+// intro は「主題」の付かない大見出し（冒頭・直前チェック）の主題として使う番号（101 は "00"、102 は "102"）
+function parseNotes(md, intro) {
   const lines = md.split(/\r?\n/);
   const list = [];
-  let theme = "00", themeTitle = "はじめに", cur = null, inFence = false;
+  let theme = intro, themeTitle = "はじめに", cur = null, inFence = false;
 
   for (const line of lines) {
     if (/^```/.test(line)) inFence = !inFence;
@@ -428,7 +429,7 @@ function parseNotes(md) {
       if (h1) {
         themeTitle = h1[1];
         const m = themeTitle.match(/主題\s*(\d+\.\d+)/);
-        theme = m ? m[1] : "00";
+        theme = m ? m[1] : intro;
         cur = null;
         continue;
       }
@@ -446,8 +447,18 @@ function parseNotes(md) {
   return list.filter(s => s.lines.some(l => l.trim()));
 }
 
-const NOTE_SECTIONS = parseNotes(typeof NOTES_MD === "string" ? NOTES_MD : "");
-const NOTE_THEMES = [...new Set(NOTE_SECTIONS.map(s => s.theme))];   // 主題の並び（"00", "1.01", …）
+// 101 と 102 のノートをまとめて持ち、画面には学習中の試験の分だけを出す
+const NOTE_SECTIONS = parseNotes(typeof NOTES_MD === "string" ? NOTES_MD : "", EXAMS["101"].intro)
+  .concat(parseNotes(typeof NOTES_MD_102 === "string" ? NOTES_MD_102 : "", EXAMS["102"].intro));
+
+// 学習中の試験の主題の並び（"00", "1.01", … ／ "102", "1.06", …）
+function noteThemes() {
+  return [...new Set(NOTE_SECTIONS.map(s => s.theme))].filter(inExam);
+}
+// 学習中の試験の節を、全体での番号（idx。要素の id に使う）と一緒に回す
+function forExamSections(fn) {
+  NOTE_SECTIONS.forEach((sec, idx) => { if (inExam(sec.theme)) fn(sec, idx); });
+}
 
 // 節のキー（"主題/見出し"）。問題データの sec と対応する
 function noteKey(sec) { return sec.theme + "/" + sec.title; }
@@ -462,7 +473,7 @@ let onlyTopStars   = false;    // ★★★の節だけ表示するか
 let notesBuilt = false;
 
 function noteThemeLabel(t) {
-  return t === "00" ? "全体" : t;
+  return isIntroTheme(t) ? "全体" : t;
 }
 
 /* ---------------- 覚えた／苦手 ----------------
@@ -502,20 +513,26 @@ function noteBodyHtml(sec) {
   return (fig ? html`<div class="note-fig">${raw(fig)}</div>` : "") + mdToHtml(sec.lines);
 }
 
+// 大見出し（# ）ごとのかたまり。{ head: 見出しの要素, arts: 節の要素の配列 }
+// 冒頭と直前チェックは主題の番号が同じ（"00" や "102"）なので、番号ではなく見出しの並びで分ける
+let noteBlocks = [];
+
 function buildNotes() {
   const body = $("notesBody");
   body.innerHTML = "";
+  noteBlocks = [];
 
-  let lastTheme = null;
-  NOTE_SECTIONS.forEach((sec, idx) => {
-    if (sec.theme !== lastTheme) {
+  let lastBlock = null;
+  forExamSections((sec, idx) => {
+    const blockKey = sec.theme + "|" + sec.themeTitle;
+    if (blockKey !== lastBlock) {
       const head = document.createElement("h2");
       head.className = "note-theme";
-      head.id = "note-theme-" + sec.theme;
       head.textContent = sec.themeTitle;
       head.dataset.theme = sec.theme;
       body.appendChild(head);
-      lastTheme = sec.theme;
+      noteBlocks.push({ head, arts: [] });
+      lastBlock = blockKey;
     }
 
     const key = noteKey(sec);
@@ -540,6 +557,7 @@ function buildNotes() {
       </div>
       ${raw(noteBodyHtml(sec))}`;
     body.appendChild(art);
+    noteBlocks[noteBlocks.length - 1].arts.push(art);
   });
 
   refreshLearnedUI();
@@ -568,8 +586,8 @@ function updateLearnProgress() {
   const el = $("learnProgress");
   if (!el) return;
   const n = { learned: 0, weak: 0, unseen: 0 };
-  NOTE_SECTIONS.forEach(s => { n[noteStatus(noteKey(s))]++; });
-  const total = NOTE_SECTIONS.length;
+  forExamSections(s => { n[noteStatus(noteKey(s))]++; });
+  const total = n.learned + n.weak + n.unseen;
   const pctDone = total ? Math.round((n.learned / total) * 100) : 0;
   el.innerHTML = html`覚えた <b>${n.learned}</b> / ${total} 項目（${pctDone}%）` +
     html`<span class="learn-sub">苦手 <b class="n-weak">${n.weak}</b>・未確認 <b class="n-unseen">${n.unseen}</b></span>`;
@@ -578,7 +596,7 @@ function updateLearnProgress() {
 // 絞り込みボタンの表示（件数つき）
 function renderStatusFilter() {
   const n = { "": 0, learned: 0, weak: 0, unseen: 0 };
-  NOTE_SECTIONS.forEach(s => {
+  forExamSections(s => {
     if (noteTheme && s.theme !== noteTheme) return;
     n[""]++;
     n[noteStatus(noteKey(s))]++;
@@ -624,7 +642,7 @@ function buildNoteToc() {
   const box = $("noteTocList");
   box.innerHTML = "";
   let lastTheme = null;
-  NOTE_SECTIONS.forEach((sec, idx) => {
+  forExamSections((sec, idx) => {
     if (noteTheme && sec.theme !== noteTheme) return;
     const key = noteKey(sec);
     if (!noteStatusOk(key)) return;
@@ -672,12 +690,8 @@ function filterNotes() {
     if (show) hit++;
   });
 
-  // 見出し（主題）は、その中に表示中の節があるときだけ出す
-  document.querySelectorAll("#notesBody .note-theme").forEach(h => {
-    const any = [...document.querySelectorAll('#notesBody .note-sec[data-theme="' + h.dataset.theme + '"]')]
-      .some(el => !el.hidden);
-    h.hidden = !any;
-  });
+  // 大見出しは、その下に表示中の節があるときだけ出す
+  for (const b of noteBlocks) b.head.hidden = !b.arts.some(el => !el.hidden);
 
   $("noteEmpty").hidden = hit > 0;
   renderStatusFilter();
@@ -685,7 +699,7 @@ function filterNotes() {
 }
 
 /* ---------------- 広い画面での並べ方 ----------------
-   本文が十分に広いときは、主題ごとに節を2列に詰める。
+   本文が十分に広いときは、大見出しごとに節を2列に詰める。
    各節を「いま短い方の列」へ順に入れるので、上から読む順番は保たれ、列の下に大きな空きもできない */
 const NOTE_TWO_COL_MIN = 1100;   // 本文がこの幅（px）以上なら2列（1列が 540px 程度あればコードや表がほぼ収まる）
 let noteLayoutWidth = 0;
@@ -714,10 +728,9 @@ function layoutNotes() {
   if (compact !== noteCompact) { $("noteFilter").open = !compact; noteCompact = compact; }
   const old = [...body.querySelectorAll(".note-group")];
 
-  for (const t of NOTE_THEMES) {
-    body.appendChild($("note-theme-" + t));
-    const arts = [];
-    NOTE_SECTIONS.forEach((s, i) => { if (s.theme === t) arts.push($("note-sec-" + i)); });
+  for (const block of noteBlocks) {
+    body.appendChild(block.head);
+    const arts = block.arts;
 
     if (!two) { arts.forEach(a => body.appendChild(a)); continue; }
 
@@ -808,7 +821,7 @@ function renderNoteThemes() {
     box.appendChild(b);
   };
   mk("すべて", null);
-  NOTE_THEMES.forEach(t => mk(noteThemeLabel(t), t));
+  noteThemes().forEach(t => mk(noteThemeLabel(t), t));
 }
 
 function showNotes(theme) {
@@ -819,6 +832,16 @@ function showNotes(theme) {
   filterNotes();
   show("notes");
   layoutNotes();           // 隠れている間は測れないので、表示してから並べる
+}
+
+// 試験を切り替えたときに、ノートを学習中の試験の分で作り直す
+function resetNotesForExam() {
+  notesBuilt = false;
+  noteTheme = null;
+  noteStatusFilter = "";
+  $("noteSearch").value = "";
+  $("notesBody").innerHTML = "";
+  renderNoteJump();
 }
 
 // ホーム画面に主題ごとの入口を並べる
@@ -835,8 +858,8 @@ function renderNoteJump() {
     box.appendChild(b);
   };
   mk("ノートを開く", null);
-  NOTE_THEMES.forEach(t => {
-    if (t === "00") return;
+  noteThemes().forEach(t => {
+    if (isIntroTheme(t)) return;
     const sec = NOTE_SECTIONS.find(s => s.theme === t);
     const name = sec.themeTitle.replace(/^主題\s*\d+\.\d+\s*/, "");
     mk(t + " " + name.slice(0, 14), t);

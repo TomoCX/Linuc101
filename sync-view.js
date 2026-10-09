@@ -4,10 +4,12 @@
 
 const SYNC_APP = "linuc101";
 
-// 保存済みセッションの健全性チェック（壊れていたら null を返す）
-function normalizeSession(s) {
+// 保存済みセッションの健全性チェック（壊れていたら null を返す。exam を省くと学習中の試験）
+function normalizeSession(s, exam) {
   if (!s || !Array.isArray(s.order) || !s.order.length) return null;
   if (s.order.some(id => !QMAP.has(id))) return null;          // 削除された問題を含む
+  exam = exam || currentExam();
+  if (s.order.some(id => examOfTheme(QMAP.get(id).cat) !== exam)) return null;   // 別の試験の問題を含む
   const n = s.order.length;
   const fix = (arr) => (Array.isArray(arr) && arr.length === n) ? arr : new Array(n).fill(null);
   s.results = fix(s.results);
@@ -21,9 +23,17 @@ function normalizeSession(s) {
 // 保存済みの出題設定を、いまのカテゴリ・項目に合わせて整える（起動時と取り込み時）
 function normalizeConfig(c) {
   c.cats = (c.cats || []).filter(id => CATEGORIES[id]);
-  if (!c.cats.length) c.cats = Object.keys(CATEGORIES);   // カテゴリの追加・削除に追随
+  // 試験ごとに、1つも選ばれていなければ全部を選ぶ（カテゴリの追加・102 の追加に追随）
+  for (const e of Object.values(EXAMS)) {
+    if (!c.cats.some(id => e.cats.includes(id))) c.cats.push(...e.cats.filter(id => CATEGORIES[id]));
+  }
   if (c.keepHelp === undefined) c.keepHelp = true;        // 旧設定の互換
   return c;
+}
+
+// 試験ごとの進行中のセッション（学習中の試験はメモリ上のもの、もう一方は保存領域から）
+function sessionOf(exam) {
+  return exam === currentExam() ? session : load(sessionKey(exam), null);
 }
 
 // 現在の状態を1つのオブジェクトにまとめる
@@ -36,7 +46,8 @@ function buildPayload() {
     savedAt: new Date(lastChangeAt || Date.now()).toISOString(),
     answered: answered,
     questions: QUESTIONS.length,
-    session: session,
+    session: sessionOf("101"),       // 旧版との互換のため、101 のセッションは session に入れる
+    session102: sessionOf("102"),
     stats: stats,
     config: config,
     learned: learned,
@@ -121,9 +132,14 @@ function applyPayload(data, silent) {
   cardsLearned = (data.cards && typeof data.cards === "object") ? data.cards : {};
   save(CARDS_KEY, cardsLearned);
 
-  session = normalizeSession(data.session);
-  if (session) save(SESSION_KEY, session);
-  else remove(SESSION_KEY);
+  // 進行中のセッションは試験ごとに。102 を持たない旧版のデータからは、この端末の 102 を消さない
+  for (const [exam, field] of [["101", "session"], ["102", "session102"]]) {
+    if (!(field in data)) continue;
+    const s = normalizeSession(data[field], exam);
+    if (s) save(sessionKey(exam), s);
+    else remove(sessionKey(exam));
+  }
+  session = normalizeSession(load(sessionKey(), null));
 
   if (data.config && typeof data.config === "object") {
     config = normalizeConfig(data.config);
@@ -138,7 +154,8 @@ function applyPayload(data, silent) {
   applyConfigToForm();
   refreshLearnedUI();
   refreshCardsUI();
-  renderHome();
+  if (examId) renderHome();
+  else showExamSelect();          // 試験を選ぶ前に取り込んだときは、選択画面のまま進み具合だけ更新
   if (!silent) {
     syncMessage("読み込みました（" + fmtDate(data.savedAt) + " 時点、累計 " +
       (data.answered || 0) + " 問）。" + (session ? "中断していたセッションも復元しました。" : ""), "ok");

@@ -1,7 +1,7 @@
 /* =======================================================================
    単語帳画面
    -----------------------------------------------------------------------
-   CARDS（cards.js）を、セクション単位またはまとめてランダムに表示する。
+   CARDS（cards.js・cards102.js）のうち学習中の試験の分を、セクション単位またはまとめてランダムに表示する。
    「覚えた」の状態は cardsLearned（app.js）に保持し、進捗の同期対象になる。
    ======================================================================= */
 
@@ -14,38 +14,50 @@ let cardIdx    = 0;         // 表示中のカード位置
 let cardShown  = false;     // 意味を表示しているか
 let cardsBuilt = false;
 
+// 主題の並べ方（直前チェック・全体を先頭に、あとは番号順）
+function cardThemeOrder(a, b) {
+  return (isIntroTheme(b) - isIntroTheme(a)) || a.localeCompare(b);
+}
 
-// セクションの見出しだけを取り出す（"1.02/アクセス権（パーミッション）" → "アクセス権（パーミッション）"）
+// 試験を切り替えたときに、単語帳を学習中の試験の分で作り直す
+function resetCardsForExam() {
+  cardsBuilt = false;
+  cardSec = null;
+  cardDeck = [];
+  cardIdx = 0;
+  renderCardJump();
+}
 
 function buildCardSelect() {
   const sel = $("cardSec");
   sel.innerHTML = "";
+  const cards = examCards();
 
   const all = document.createElement("option");
   all.value = "";
-  all.textContent = "すべてのセクション（" + CARDS.length + "枚）";
+  all.textContent = "すべてのセクション（" + cards.length + "枚）";
   sel.appendChild(all);
 
   // 主題ごとにまとめて並べる
   const themes = [];
-  CARDS.forEach(c => { const t = secTheme(c.sec); if (!themes.includes(t)) themes.push(t); });
-  themes.sort();
+  cards.forEach(c => { const t = secTheme(c.sec); if (!themes.includes(t)) themes.push(t); });
+  themes.sort(cardThemeOrder);
 
   for (const t of themes) {
     const group = document.createElement("optgroup");
-    group.label = (t === "00" ? "直前チェック・全体" : "主題 " + t);
+    group.label = (isIntroTheme(t) ? "直前チェック・全体" : "主題 " + t);
 
     // 主題まるごと
-    const nAll = CARDS.filter(c => secTheme(c.sec) === t).length;
+    const nAll = cards.filter(c => secTheme(c.sec) === t).length;
     const oAll = document.createElement("option");
     oAll.value = t + "/*";
     oAll.textContent = "── この主題すべて（" + nAll + "枚）";
     group.appendChild(oAll);
 
     const keys = [];
-    CARDS.forEach(c => { if (secTheme(c.sec) === t && !keys.includes(c.sec)) keys.push(c.sec); });
+    cards.forEach(c => { if (secTheme(c.sec) === t && !keys.includes(c.sec)) keys.push(c.sec); });
     for (const k of keys) {
-      const n = CARDS.filter(c => c.sec === k).length;
+      const n = cards.filter(c => c.sec === k).length;
       const o = document.createElement("option");
       o.value = k;
       o.textContent = secTitle(k) + "（" + n + "枚）";
@@ -67,7 +79,7 @@ function cardMatch(c) {
 function buildDeck(keepPosition) {
   const prevId = keepPosition && cardDeck[cardIdx] ? cardDeck[cardIdx].id : null;
 
-  let list = CARDS.filter(cardMatch);
+  let list = examCards().filter(cardMatch);
   if (hideKnown) list = list.filter(c => !cardsLearned[c.id]);
   if (cardOrder === "shuffle") list = shuffle(list);
 
@@ -78,7 +90,7 @@ function buildDeck(keepPosition) {
 }
 
 function updateCardProgress() {
-  const target = CARDS.filter(cardMatch);
+  const target = examCards().filter(cardMatch);
   const done = target.filter(c => cardsLearned[c.id]).length;
   const p = target.length ? Math.round((done / target.length) * 100) : 0;
   $("cardProgress").innerHTML =
@@ -266,12 +278,13 @@ function renderCardJump() {
     box.appendChild(b);
   };
 
-  mk("全部シャッフル（" + CARDS.length + "枚）", null, true);
+  const cards = examCards();
+  mk("全部シャッフル（" + cards.length + "枚）", null, true);
   const themes = [];
-  CARDS.forEach(c => { const t = secTheme(c.sec); if (!themes.includes(t)) themes.push(t); });
-  themes.sort().forEach(t => {
-    const n = CARDS.filter(c => secTheme(c.sec) === t).length;
-    mk((t === "00" ? "直前チェック" : t) + "（" + n + "枚）", t + "/*", false);
+  cards.forEach(c => { const t = secTheme(c.sec); if (!themes.includes(t)) themes.push(t); });
+  themes.sort(cardThemeOrder).forEach(t => {
+    const n = cards.filter(c => secTheme(c.sec) === t).length;
+    mk((isIntroTheme(t) ? "直前チェック" : t) + "（" + n + "枚）", t + "/*", false);
   });
 }
 renderCardJump();

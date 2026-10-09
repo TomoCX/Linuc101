@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Linuc レベル1 101 問題演習</title>
+<title>Linuc レベル1 問題演習</title>
 <!-- iPhone / iPad：ホーム画面に追加したときにアプリのように全画面で開く -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -21,7 +21,7 @@
 <div id="lockScreen">
   <form class="lock-box" id="lockForm">
     <div class="lock-logo">$_</div>
-    <h1 class="lock-title">Linuc 101 問題演習</h1>
+    <h1 class="lock-title">Linuc レベル1 問題演習</h1>
     <p class="lock-lead">この端末では初めての利用です。パスワードを入力してください。</p>
     <input type="password" id="lockInput" placeholder="パスワード" autocomplete="current-password"
            autocapitalize="off" autocorrect="off" spellcheck="false">
@@ -37,7 +37,7 @@
 <header class="topbar">
   <div class="brand" id="brandHome" title="ホームへ戻る">
     <span class="logo">$_</span>
-    <span>Linuc <b>101</b> 問題演習</span>
+    <span>Linuc <b id="brandExam">101</b> 問題演習</span>
   </div>
   <div class="topbar-right">
     <span id="topbarStatus"></span>
@@ -156,8 +156,28 @@
 
 <main>
 
+<!-- ============================ 試験の選択 ============================ -->
+<section id="screen-select" class="screen" hidden>
+  <div class="select-head">
+    <h1 class="select-title">どの試験を学習しますか？</h1>
+    <p class="sync-lead">
+      あとからでも、ホーム画面のいちばん上の「切り替える」でいつでも変えられます。
+      成績・ノートのチェック・途中のセッションは、試験ごとにそのまま残ります。
+    </p>
+  </div>
+  <div class="exam-choices" id="examChoices"></div>
+</section>
+
 <!-- ============================ ホーム ============================ -->
 <section id="screen-home" class="screen home-grid">
+
+  <!-- 学習中の試験（切り替えの入口） -->
+  <div class="exam-bar" id="examBar">
+    <span class="exam-bar-label">学習中</span>
+    <b class="exam-bar-name" id="examBarName"></b>
+    <span class="exam-bar-range" id="examBarRange"></span>
+    <button class="btn btn-mini" id="btnExamSwitch">切り替える</button>
+  </div>
 
   <!-- PCの広い画面では3列（主な操作 ／ 復習 ／ 成績と設定）に並べる。スマホでは order で元の並び順のまま1列 -->
   <div class="home-col home-main">
@@ -629,9 +649,12 @@
 <!-- データ -->
 <script src="questions.js"></script>
 <script src="questions-sec.js"></script>
+<script src="questions102.js"></script>
 <script src="commands.js"></script>
 <script src="notes.js"></script>
+<script src="notes102.js"></script>
 <script src="cards.js"></script>
+<script src="cards102.js"></script>
 <script src="keypoints.js"></script>
 
 <!-- 各画面 -->
@@ -643,6 +666,7 @@
 <script src="help-view.js"></script>
 <script src="sync-view.js"></script>
 <script src="ai-view.js"></script>
+<script src="exam-view.js"></script>
 
 <!-- 本体（最後に読み込んで初期化する） -->
 <script src="app.js"></script>

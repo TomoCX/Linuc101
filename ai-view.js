@@ -67,7 +67,7 @@ function aiIsOpen() { return document.body.classList.contains("ai-open"); }
 // 貼り付け先への指示
 function aiHeader(hideAnswer) {
   const lines = [
-    "あなたは LinuC レベル1（101試験）の学習を助ける家庭教師です。",
+    "あなたは " + examInfo().title + "の学習を助ける家庭教師です。",
     "下の【いまの状況】と【参考資料】をふまえて、いちばん最後の【質問】に日本語で答えてください。",
     "",
     "答え方のきまり:",
@@ -232,10 +232,11 @@ const AI_CONTEXT = {
   },
 
   home() {
-    const n = rankCounts(QUESTIONS.map(q => q.id));
+    const qs = examQuestions();
+    const n = rankCounts(qs.map(q => q.id));
     const now = [
       "学習アプリのホーム画面です。",
-      "累計: 全" + QUESTIONS.length + "問中、解いたことがある " + (QUESTIONS.length - n.untouched) + "問、" +
+      examInfo().title + " の累計: 全" + qs.length + "問中、解いたことがある " + (qs.length - n.untouched) + "問、" +
         "自力正解できた " + (n.solved + n.streak) + "問（うち2回以上つづけて正解 " + n.streak + "問）"
     ];
     const weak = recMasteryByStats()
@@ -411,7 +412,7 @@ function aiLocalSearch(question) {
     parts.push("### 用語\n" + terms.map(([k, v]) => "- **" + k + "**：" + v).join("\n"));
   }
 
-  const secs = NOTE_SECTIONS
+  const secs = NOTE_SECTIONS.filter(s => inExam(s.theme))
     .map(s => ({ s, n: aiCountHits(s.title + " " + s.lines.join(" "), tokens) }))
     .filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 2);
   for (const { s } of secs) {

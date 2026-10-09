@@ -10,7 +10,7 @@ let relatedCollapsed = new Set();     // 関連コマンドのうち手動で閉
 
 // コマンド名からキーワードを抽出（問題文との突き合わせに使う）
 const HELP_TOKENS = COMMAND_HELP.map(c => {
-  const stop = new Set(["debian", "rpm系", "gpt", "and", "for"]);
+  const stop = new Set(["debian", "rpm系", "gpt", "and", "for", "ip"]);   // ip は「IPアドレス」に反応しすぎるので keys で拾う
   const set = new Set();
   (c.name.match(/[A-Za-z][A-Za-z0-9_.+-]*/g) || []).forEach(t => {
     t = t.toLowerCase();
@@ -30,6 +30,12 @@ function openHelp(open) {
 
 // コマンド表が開いているか
 function helpIsOpen() { return document.body.classList.contains("help-open"); }
+
+// 学習中の試験のグループ・コマンドを先に並べる（同じ試験の中の順番は変えない）
+function helpInExamOrder(list, groupOf) {
+  const mine = (x) => helpGroupExam(groupOf(x)) === currentExam();
+  return list.filter(mine).concat(list.filter(x => !mine(x)));
+}
 
 function highlight(text, q) {
   const safe = esc(text);
@@ -53,7 +59,7 @@ function renderHelpGroups() {
     box.appendChild(b);
   };
   mk("すべて", null);
-  HELP_GROUPS.forEach(g => mk(g, g));
+  helpInExamOrder(HELP_GROUPS, g => g).forEach(g => mk(g, g));
 }
 
 // コマンド1件分のカードを作る
@@ -125,7 +131,7 @@ function renderHelpBody() {
     section("そのほかのコマンド");
   }
 
-  for (const cmd of COMMAND_HELP) {
+  for (const cmd of helpInExamOrder(COMMAND_HELP, c => c.group)) {
     if (related.includes(cmd)) continue;
     if (helpGroup && cmd.group !== helpGroup) continue;
 

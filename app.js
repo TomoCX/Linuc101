@@ -14,8 +14,8 @@ const QMAP = new Map(QUESTIONS.map(q => [q.id, q]));
 function buildCatList() {
   const list = $("catList");
   list.innerHTML = "";
-  for (const [id, name] of Object.entries(CATEGORIES)) {
-    const n = QUESTIONS.filter(q => q.cat === id).length;
+  for (const [id, name] of examCategories()) {
+    const n = examQuestions().filter(q => q.cat === id).length;
     const label = document.createElement("label");
     label.className = "cat-item";
     label.innerHTML = html`
@@ -25,7 +25,7 @@ function buildCatList() {
       <span class="cat-n">${n}問</span>`;
     label.querySelector("input").checked = config.cats.includes(id);
     label.querySelector("input").addEventListener("change", () => {
-      config.cats = [...list.querySelectorAll("input:checked")].map(i => i.value);
+      setExamCats([...list.querySelectorAll("input:checked")].map(i => i.value));
       save(CONFIG_KEY, config);
       updateCountHint();
     });
@@ -33,9 +33,16 @@ function buildCatList() {
   }
 }
 
+// 出題範囲のうち、学習中の試験のカテゴリだけを入れ替える（もう一方の試験の選択は残す）
+function setExamCats(cats) {
+  const mine = examInfo().cats;
+  config.cats = config.cats.filter(c => !mine.includes(c)).concat(cats);
+  save(CONFIG_KEY, config);
+}
+
 function pool() {
   const min = config.imp || 0;
-  return QUESTIONS.filter(q => config.cats.includes(q.cat) && (q.imp || 2) >= min);
+  return examQuestions().filter(q => config.cats.includes(q.cat) && (q.imp || 2) >= min);
 }
 
 function updateCountHint() {
@@ -96,10 +103,10 @@ function renderLifetime() {
     body.appendChild(tr);
   };
 
-  for (const [id, name] of Object.entries(CATEGORIES)) {
-    row(raw(html`<span class="cat-id">${id}</span> ${name}`), sum(QUESTIONS.filter(q => q.cat === id)));
+  for (const [id, name] of examCategories()) {
+    row(raw(html`<span class="cat-id">${id}</span> ${name}`), sum(examQuestions().filter(q => q.cat === id)));
   }
-  row("合計", sum(QUESTIONS));
+  row("合計", sum(examQuestions()));
 }
 
 function renderHome() {
@@ -176,7 +183,7 @@ $("dueSecList").addEventListener("click", (e) => {
 function beginSession(ids, from) {
   startSession(ids);
   if (from) session.from = from;
-  save(SESSION_KEY, session);
+  saveSession();
   renderQuiz();
 }
 
@@ -218,7 +225,7 @@ function weakScore(q) {
 
 // 復習の期限が来ている問題（弱点優先の順に並べる）
 function dueQuestions() {
-  return QUESTIONS.filter(q => isDue(q.id))
+  return examQuestions().filter(q => isDue(q.id))
     .sort((a, b) => weakScore(b) - weakScore(a));
 }
 
@@ -355,7 +362,7 @@ function judge(picked) {
 
   // 累計成績（スキップは記録しない）
   if (!skipped) recordStat(q.id, null, result);
-  save(SESSION_KEY, session);
+  saveSession();
 
   // 選択肢の色付け（ボタンは元の番号を持っている）
   for (const el of $("choices").children) {
@@ -446,7 +453,7 @@ function setManualResult(res) {
   recordStat(q.id, prev, res);
   session.results[session.idx] = res;
   session.flags[session.idx] = (res === "wrong") ? "manual" : null;
-  save(SESSION_KEY, session);
+  saveSession();
   refreshVerdict();
   updateScoreBar();
 }
@@ -493,11 +500,11 @@ function updateScoreBar() {
 function next() {
   if (session.idx + 1 >= session.order.length) {
     session.finished = true;
-    save(SESSION_KEY, session);
+    saveSession();
     renderResult();
   } else {
     session.idx++;
-    save(SESSION_KEY, session);
+    saveSession();
     renderQuiz();
   }
 }
@@ -637,14 +644,12 @@ $("btnStartDue").addEventListener("click", () => {
 });
 
 $("btnCatAll").addEventListener("click", () => {
-  config.cats = Object.keys(CATEGORIES);
-  save(CONFIG_KEY, config);
+  setExamCats(examInfo().cats);
   buildCatList();
   updateCountHint();
 });
 $("btnCatNone").addEventListener("click", () => {
-  config.cats = [];
-  save(CONFIG_KEY, config);
+  setExamCats([]);
   buildCatList();
   updateCountHint();
 });
@@ -673,7 +678,7 @@ $("btnShowResult").addEventListener("click", renderResult);
 $("btnDiscard").addEventListener("click", () => {
   if (!confirm("現在のセッションを破棄します。よろしいですか？（累計成績は残ります）")) return;
   session = null;
-  remove(SESSION_KEY);
+  remove(sessionKey());
   renderHome();
 });
 
@@ -698,8 +703,12 @@ $("btnDowngrade").addEventListener("click", () => {
   setManualResult(session.results[session.idx] === "wrong" ? "correct" : "wrong");
 });
 
-$("btnPause").addEventListener("click", () => { save(SESSION_KEY, session); renderHome(); });
-$("brandHome").addEventListener("click", () => { if (session) save(SESSION_KEY, session); renderHome(); });
+$("btnPause").addEventListener("click", () => { saveSession(); renderHome(); });
+$("brandHome").addEventListener("click", () => {
+  if (!examId) { showExamSelect(); return; }      // 試験を選ぶまではホームへ進まない
+  saveSession();
+  renderHome();
+});
 
 $("btnRetryWrong").addEventListener("click", () => {
   const ids = session.order.filter((id, i) => session.results[i] !== "correct");
@@ -739,17 +748,20 @@ document.addEventListener("keydown", (e) => {
 (function init() {
   normalizeConfig(config);
 
+  // 試験を選ぶ前から使っていた端末（記録がある）は 101 として続ける。記録が無ければ選択画面から
+  if (!examId && hasProgress()) { examId = "101"; save(EXAM_KEY, examId); }
+
   // 保存済みセッションが壊れていたら破棄する
   session = normalizeSession(session);
-  if (!session) remove(SESSION_KEY);
+  if (!session) remove(sessionKey());
 
   applyConfigToForm();
 
-  renderHelpGroups();
-  renderHelpBody();
+  applyExamUI();
   if (load(HELP_OPEN_KEY, false)) document.body.classList.add("help-open");
 
-  renderHome();
+  if (examId) renderHome();
+  else showExamSelect();
 
   // 自動同期：接続済みなら起動時に取り込む
   renderGistUI();

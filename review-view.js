@@ -35,6 +35,13 @@ function recMasteryByStats() {
   return out;
 }
 
+// 一度は解いたが、まだ自力正解できていない問題が残っている節（習得率の低い順。ホームと「Claudeにコピー」で使う）
+function recWeakSections(all) {
+  return (all || recMasteryByStats())
+    .filter(x => x.answered > 0 && x.ok < x.total)
+    .sort((x, y) => (x.rate - y.rate) || (y.stumbled - x.stumbled));
+}
+
 // 直前のセッションで、その節をどれだけ落としたか
 function recMissBySession(s) {
   const m = new Map();
@@ -124,7 +131,7 @@ function recBindActions(boxId) {
     if (!item) return;
     const key = item.dataset.key;
 
-    if (e.target.closest(".rec-quiz")) startSectionQuiz(key);
+    if (e.target.closest(".rec-quiz")) startScopeQuiz(key);
     else if (e.target.closest(".rec-cards")) showCards(key);
     else if (e.target.closest(".rec-note-open")) showNoteSection(key);
   });
@@ -170,15 +177,11 @@ function renderResultRecommend() {
 // ホーム：累計成績から見た習得状況
 function renderHomeRecommend() {
   const card = $("recHomeCard");
-  const all = recMasteryByStats().filter(x => x.answered > 0);   // 一度は解いた節だけ
+  const all = recMasteryByStats();
+  card.hidden = !all.some(x => x.answered > 0);       // 一度は解いた節が無ければ出さない
+  if (card.hidden) return;
 
-  if (!all.length) { card.hidden = true; return; }
-  card.hidden = false;
-
-  // まだ自力正解できていない問題が残っている節を、習得率の低い順に
-  const items = all
-    .filter(x => x.ok < x.total)
-    .sort((x, y) => (x.rate - y.rate) || (y.stumbled - x.stumbled))
+  const items = recWeakSections(all)
     .map(x => Object.assign({}, x, {
       bar: true,
       sub: "全 " + x.total + "問中 <b>" + x.ok + "問</b> を自力で正解（うち◎連続 " + x.streak + "問）" +

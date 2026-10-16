@@ -131,27 +131,22 @@ function glossKeyFromTerm(term) {
 (function buildGlossary() {
   for (const g of GLOSSARY) glossAdd(g.key, g.def);
 
-  if (typeof CARDS !== "undefined") {
-    for (const c of CARDS) glossAdd(glossKeyFromTerm(c.term), c.mean);
-  }
+  for (const c of CARDS) glossAdd(glossKeyFromTerm(c.term), c.mean);
 
-  if (typeof COMMAND_HELP !== "undefined") {
-    for (const cmd of COMMAND_HELP) {
-      // 「mv / rm / mkdir / rmdir」のような見出しは個別のコマンドに分ける
-      const names = cmd.name.split(/[\/／・]/).map(s => s.trim());
-      for (const n of names) {
-        if (/^[a-z][a-z0-9_.+-]*$/i.test(n)) glossAdd(n, cmd.desc);
-      }
+  for (const cmd of COMMAND_HELP) {
+    // 「mv / rm / mkdir / rmdir」のような見出しは個別のコマンドに分ける
+    const names = cmd.name.split(/[\/／・]/).map(s => s.trim());
+    for (const n of names) {
+      if (/^[a-z][a-z0-9_.+-]*$/i.test(n)) glossAdd(n, cmd.desc);
     }
   }
 
   // 長い語から順に照合する（「シンボリックリンク」が「リンク」に食われないように）
   const keys = [...glossMap.keys()].sort((a, b) => b.length - a.length);
   const pattern = keys.map(k => {
-    const escaped = k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const head = /^[A-Za-z0-9_]/.test(k) ? "\\b" : "";
     const tail = /[A-Za-z0-9_]$/.test(k) ? "\\b" : "";
-    return head + escaped + tail;
+    return head + reEscape(k) + tail;
   }).join("|");
   glossRe = new RegExp("(" + pattern + ")", "g");
 })();

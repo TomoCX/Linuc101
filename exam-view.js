@@ -68,8 +68,7 @@ function setExam(id) {
   closeNotePanel();
   examId = id;
   save(EXAM_KEY, id);
-  session = normalizeSession(load(sessionKey(), null));
-  if (!session) remove(sessionKey());
+  loadSession();
   applyExamUI();
   renderHome();
 }

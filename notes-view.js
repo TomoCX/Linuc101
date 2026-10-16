@@ -31,21 +31,15 @@ function mdInline(text) {
   });
 }
 
-// 重要語を拾うための正規表現（長い語から順に並べてある）
-// バックスラッシュを直接書かずに組み立てる
-function reEscape(str) {
-  const bs = String.fromCharCode(92);
-  let out = "";
-  for (const ch of str) out += ("^$.*+?()[]{}|/".indexOf(ch) >= 0 ? bs + ch : ch);
-  return out;
-}
 // 各試験の keypoints.js で登録された語を、長い語から順に照合する（短い語が長い語の一部を先に取らないように）
 const KEY_POINT_SET = new Set(KEY_POINTS);
-const KEY_POINT_RE = new RegExp("(" + [...KEY_POINT_SET].sort((a, b) => b.length - a.length).map(reEscape).join("|") + ")", "g");
+const KEY_POINT_RE = KEY_POINT_SET.size
+  ? new RegExp("(" + [...KEY_POINT_SET].sort((a, b) => b.length - a.length).map(reEscape).join("|") + ")", "g")
+  : null;
 
 // 重要語に印を付ける（タグの中身には触れない）
 function markKeyPoints(html) {
-  if (!showKeyPoints) return html;
+  if (!showKeyPoints || !KEY_POINT_RE) return html;
   return html.split(/(<[^>]*>)/).map(part =>
     part.startsWith("<") ? part
       : part.replace(KEY_POINT_RE, m => '<mark class="kp">' + m + "</mark>")
@@ -55,7 +49,7 @@ function markKeyPoints(html) {
 // 表の1行をセルに分ける（前後の | を落として分割する）
 // 「\|」はセルの区切りではなく文字の | として扱う（|| や正規表現の | を表に書くため）
 function mdCells(line) {
-  const bs = String.fromCharCode(92);   // バックスラッシュ（直接書かない。reEscape と同じ理由）
+  const bs = "\\";              // バックスラッシュ1文字
   let s = line.trim();
   if (s.startsWith("|")) s = s.slice(1);
   if (s.endsWith("|") && !s.endsWith(bs + "|")) s = s.slice(0, -1);
@@ -310,9 +304,8 @@ function buildNotes() {
     noteBlocks[noteBlocks.length - 1].arts.push(art);
   });
 
-  refreshLearnedUI();
-  buildNoteToc();
   notesBuilt = true;
+  refreshLearnedUI();
 }
 
 // 1つの節のチェックと色を、保存されている状態に合わせる
@@ -328,8 +321,13 @@ function paintNoteSec(el) {
 function refreshLearnedUI() {
   document.querySelectorAll("#notesBody .note-sec").forEach(paintNoteSec);
   updateLearnProgress();
+  if (notesBuilt) applyNoteFilters();
+}
+
+// 目次と本文を、いまの絞り込み（主題・状態・★★★・検索）に合わせて出し直す
+function applyNoteFilters() {
   buildNoteToc();
-  if (notesBuilt) filterNotes();
+  filterNotes();
 }
 
 function updateLearnProgress() {
@@ -365,12 +363,6 @@ function renderStatusFilter() {
     onlyTopStars && "★★★"
   ].filter(Boolean);
   $("noteFilterSum").textContent = on.length ? "：" + on.join("・") : "";
-}
-
-// ノートの節から、その範囲だけの問題を出題する（結果画面からその節へ戻れる）
-function startSectionQuiz(key) {
-  const ids = secQuestionIds(key);
-  if (ids.length) beginSession(shuffle(ids), key);
 }
 
 // ノート画面を開いて、その節まで移る（ほかの画面から「ノートで開く」とき）
@@ -553,33 +545,18 @@ if (window.ResizeObserver) {
   }).observe(document.querySelector("#screen-notes .notes-head"));
 }
 
+// 主題の絞り込みボタン（押した主題をもう一度押すと「すべて」に戻す）
 function renderNoteThemes() {
-  const box = $("noteThemes");
-  box.innerHTML = "";
-
-  const mk = (label, value) => {
-    const b = document.createElement("button");
-    b.className = "chip" + (noteTheme === value ? " is-on" : "");
-    b.textContent = label;
-    b.addEventListener("click", () => {
-      noteTheme = (noteTheme === value) ? null : value;
-      renderNoteThemes();
-      buildNoteToc();
-      filterNotes();
-      window.scrollTo(0, 0);
-    });
-    box.appendChild(b);
-  };
-  mk("すべて", null);
-  noteThemes().forEach(t => mk(noteThemeLabel(t), t));
+  const chips = [["", "すべて"]].concat(noteThemes().map(t => [t, noteThemeLabel(t)]));
+  $("noteThemes").innerHTML = chips.map(([t, label]) =>
+    html`<button class="chip${(noteTheme || "") === t ? " is-on" : ""}" data-theme="${t}">${label}</button>`).join("");
 }
 
 function showNotes(theme) {
   if (!notesBuilt) buildNotes();
   if (theme !== undefined) noteTheme = theme;
   renderNoteThemes();
-  buildNoteToc();
-  filterNotes();
+  applyNoteFilters();
   show("notes");
   layoutNotes();           // 隠れている間は測れないので、表示してから並べる
 }
@@ -596,26 +573,24 @@ function resetNotesForExam() {
 
 // ホーム画面に主題ごとの入口を並べる
 function renderNoteJump() {
-  const box = $("noteJump");
-  if (!box) return;
-  box.innerHTML = "";
-
-  const mk = (label, value) => {
-    const b = document.createElement("button");
-    b.className = "chip";
-    b.textContent = label;
-    b.addEventListener("click", () => showNotes(value));
-    box.appendChild(b);
-  };
-  mk("ノートを開く", null);
-  noteThemes().forEach(t => {
-    if (isIntroTheme(t)) return;
-    const sec = NOTE_SECTIONS.find(s => s.theme === t);
-    const name = sec.themeTitle.replace(/^主題\s*\d+\.\d+\s*/, "");
-    mk(t + " " + name.slice(0, 14), t);
-  });
+  const themes = noteThemes().filter(t => !isIntroTheme(t));
+  $("noteJump").innerHTML = html`<button class="chip" data-theme="">ノートを開く</button>` +
+    themes.map(t => html`<button class="chip" data-theme="${t}">${t} ${(CATEGORIES[t] || "").slice(0, 14)}</button>`).join("");
 }
 
+$("noteThemes").addEventListener("click", (e) => {
+  const b = e.target.closest(".chip");
+  if (!b) return;
+  const t = b.dataset.theme || null;
+  noteTheme = (noteTheme === t) ? null : t;
+  renderNoteThemes();
+  applyNoteFilters();
+  window.scrollTo(0, 0);
+});
+$("noteJump").addEventListener("click", (e) => {
+  const b = e.target.closest(".chip");
+  if (b) showNotes(b.dataset.theme || null);
+});
 $("btnNotesTop").addEventListener("click", () => showNotes());
 $("btnNotesHome").addEventListener("click", () => renderHome());
 $("noteSearch").addEventListener("input", filterNotes);
@@ -624,20 +599,17 @@ $("noteStatusFilter").addEventListener("click", (e) => {
   if (!b) return;
   // 選択中のボタンをもう一度押したら「すべて」に戻す
   noteStatusFilter = (noteStatusFilter === b.dataset.status) ? "" : b.dataset.status;
-  buildNoteToc();
-  filterNotes();
+  applyNoteFilters();
   window.scrollTo(0, 0);
 });
 $("optOnlyTopStars").addEventListener("change", (e) => {
   onlyTopStars = e.target.checked;
-  buildNoteToc();
-  filterNotes();
+  applyNoteFilters();
 });
 $("optShowKeyPoints").addEventListener("change", (e) => {
   showKeyPoints = e.target.checked;
   notesBuilt = false;          // 本文を作り直して印を付け直す
   buildNotes();
-  filterNotes();
 });
 renderNoteJump();
 
@@ -654,5 +626,5 @@ $("notesBody").addEventListener("change", (e) => {
 $("notesBody").addEventListener("click", (e) => {
   const btn = e.target.closest(".note-quiz");
   if (!btn) return;
-  startSectionQuiz(btn.dataset.key);
+  startScopeQuiz(btn.dataset.key);
 });

@@ -1,8 +1,8 @@
 /* =======================================================================
    単語帳画面
    -----------------------------------------------------------------------
-   CARDS（cards.js・cards102.js）のうち学習中の試験の分を、セクション単位またはまとめてランダムに表示する。
-   「覚えた」の状態は cardsLearned（app.js）に保持し、進捗の同期対象になる。
+   各試験の cards.js（addCards）のうち学習中の試験の分を、セクション単位またはまとめてランダムに表示する。
+   「覚えた」の状態は cardsLearned（core.js）に保持し、進捗の同期対象になる。
    ======================================================================= */
 
 let cardSec    = null;      // 対象セクション（null = すべて）
@@ -14,9 +14,12 @@ let cardIdx    = 0;         // 表示中のカード位置
 let cardShown  = false;     // 意味を表示しているか
 let cardsBuilt = false;
 
-// 主題の並べ方（直前チェック・全体を先頭に、あとは番号順）
-function cardThemeOrder(a, b) {
-  return (isIntroTheme(b) - isIntroTheme(a)) || a.localeCompare(b);
+// カードのある主題と枚数（直前チェック・全体を先頭に、あとは番号順）
+function cardThemes(cards) {
+  const n = new Map();
+  for (const c of cards) { const t = secTheme(c.sec); n.set(t, (n.get(t) || 0) + 1); }
+  return [...n].map(([theme, count]) => ({ theme, count }))
+    .sort((a, b) => (isIntroTheme(b.theme) - isIntroTheme(a.theme)) || a.theme.localeCompare(b.theme));
 }
 
 // 試験を切り替えたときに、単語帳を学習中の試験の分で作り直す
@@ -39,19 +42,14 @@ function buildCardSelect() {
   sel.appendChild(all);
 
   // 主題ごとにまとめて並べる
-  const themes = [];
-  cards.forEach(c => { const t = secTheme(c.sec); if (!themes.includes(t)) themes.push(t); });
-  themes.sort(cardThemeOrder);
-
-  for (const t of themes) {
+  for (const { theme: t, count } of cardThemes(cards)) {
     const group = document.createElement("optgroup");
     group.label = (isIntroTheme(t) ? "直前チェック・全体" : "主題 " + t);
 
     // 主題まるごと
-    const nAll = cards.filter(c => secTheme(c.sec) === t).length;
     const oAll = document.createElement("option");
     oAll.value = t + "/*";
-    oAll.textContent = "── この主題すべて（" + nAll + "枚）";
+    oAll.textContent = "── この主題すべて（" + count + "枚）";
     group.appendChild(oAll);
 
     const keys = [];
@@ -280,11 +278,8 @@ function renderCardJump() {
 
   const cards = examCards();
   mk("全部シャッフル（" + cards.length + "枚）", null, true);
-  const themes = [];
-  cards.forEach(c => { const t = secTheme(c.sec); if (!themes.includes(t)) themes.push(t); });
-  themes.sort(cardThemeOrder).forEach(t => {
-    const n = cards.filter(c => secTheme(c.sec) === t).length;
-    mk((isIntroTheme(t) ? "直前チェック" : t) + "（" + n + "枚）", t + "/*", false);
-  });
+  for (const { theme: t, count } of cardThemes(cards)) {
+    mk((isIntroTheme(t) ? "直前チェック" : t) + "（" + count + "枚）", t + "/*", false);
+  }
 }
 renderCardJump();

@@ -6,8 +6,6 @@
    進捗の同期は sync-view.js にある。
    ======================================================================= */
 
-const QMAP = new Map(QUESTIONS.map(q => [q.id, q]));
-
 /* ==================================================================
    ホーム画面
 ================================================================== */
@@ -15,7 +13,7 @@ function buildCatList() {
   const list = $("catList");
   list.innerHTML = "";
   for (const [id, name] of examCategories()) {
-    const n = examQuestions().filter(q => q.cat === id).length;
+    const n = catQuestions(id).length;
     const label = document.createElement("label");
     label.className = "cat-item";
     label.innerHTML = html`
@@ -104,7 +102,7 @@ function renderLifetime() {
   };
 
   for (const [id, name] of examCategories()) {
-    row(raw(html`<span class="cat-id">${id}</span> ${name}`), sum(examQuestions().filter(q => q.cat === id)));
+    row(raw(html`<span class="cat-id">${id}</span> ${name}`), sum(catQuestions(id)));
   }
   row("合計", sum(examQuestions()));
 }
@@ -138,53 +136,95 @@ function renderDueCard() {
     n.streak   && "定着の確認 " + n.streak + "問"
   ].filter(Boolean).join(" ・ ");
   $("btnStartDue").textContent = "期限が来た問題を解く（" + due.length + "問）";
-  renderDueSections(due);
+  for (const [scope, g] of Object.entries(DUE_GROUPS)) renderDueGroup(scope, g, due);
 }
 
-// 期限が来た問題を、ノートの項目（節）ごとにまとめる。主題の順、同じ主題の中は問題の多い順
-function dueBySection(due) {
+/*
+   期限が来た問題の分け方（章ごと・項目ごと）。key は session.from になる（項目なしは ""）。
+     order … 並べる順の基準（同じなら問題の多い順）
+*/
+const DUE_GROUPS = {
+  cat: {
+    unit: "章", list: "dueCatList", sum: "dueCatsSum",
+    keyOf: q => q.cat,
+    order: key => key,
+    label: key => [key, CATEGORIES[key]]
+  },
+  sec: {
+    unit: "項目", list: "dueSecList", sum: "dueSecsSum",
+    keyOf: q => q.sec || "",
+    order: key => key ? secTheme(key) : "99",
+    label: key => key ? [secTheme(key), secTitle(key)] : ["—", "項目なし"]
+  }
+};
+
+function groupDue(due, g) {
   const groups = new Map();
   for (const q of due) {
-    const key = q.sec || "";
-    if (!groups.has(key)) groups.set(key, { key, ids: [] });
-    groups.get(key).ids.push(q.id);        // due は弱点優先の順なので、その順のまま出す
+    const key = g.keyOf(q);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(q.id);        // due は弱点優先の順なので、その順のまま出す
   }
-  return [...groups.values()].sort((a, b) =>
-    secTheme(a.key || "99").localeCompare(secTheme(b.key || "99")) || b.ids.length - a.ids.length);
+  return [...groups].map(([key, ids]) => ({ key, ids }))
+    .sort((a, b) => g.order(a.key).localeCompare(g.order(b.key)) || b.ids.length - a.ids.length);
 }
 
-function renderDueSections(due) {
-  const groups = dueBySection(due);
-  $("dueSecsSum").textContent = "項目ごとに解く（" + groups.length + "項目）";
-  $("dueSecList").innerHTML = groups.map(g => {
-    const stumbled = rankCounts(g.ids).stumbled;     // △ だけ（○ 正解済みは含めない）
+function renderDueGroup(scope, g, due) {
+  const groups = groupDue(due, g);
+  $(g.sum).textContent = g.unit + "ごとに解く（" + groups.length + g.unit + "）";
+  $(g.list).innerHTML = groups.map(({ key, ids }) => {
+    const [num, title] = g.label(key);
+    const stumbled = rankCounts(ids).stumbled;     // △ だけ（○ 正解済みは含めない）
     return html`
-    <button class="due-sec" data-key="${g.key}">
-      <span class="rec-theme">${g.key ? secTheme(g.key) : "—"}</span>
-      <span class="due-sec-title">${g.key ? secTitle(g.key) : "項目なし"}</span>
-      <span class="due-sec-n">${g.ids.length}問${stumbled > 0 && raw(html`<small>（つまずき ${stumbled}）</small>`)}</span>
+    <button class="due-sec" data-scope="${scope}" data-key="${key}">
+      <span class="rec-theme">${num}</span>
+      <span class="due-sec-title">${title}</span>
+      <span class="due-sec-n">${ids.length}問${stumbled > 0 && raw(html`<small>（つまずき ${stumbled}）</small>`)}</span>
     </button>`;
   }).join("");
 }
 
-// 1つの項目の、期限が来た問題だけを解く（結果画面から、その項目のノートへ戻れるようにする）
-$("dueSecList").addEventListener("click", (e) => {
+// 1つの章・項目の、期限が来た問題だけを解く（結果画面から、その範囲の全問とノートへ移れるようにする）
+$("dueCard").addEventListener("click", (e) => {
   const btn = e.target.closest(".due-sec");
   if (!btn) return;
+  const { keyOf } = DUE_GROUPS[btn.dataset.scope];
   const key = btn.dataset.key;
-  const ids = dueQuestions().filter(q => (q.sec || "") === key).map(q => q.id);
+  const ids = dueQuestions().filter(q => keyOf(q) === key).map(q => q.id);
   if (ids.length) beginSession(ids, key || null);
 });
 
 /* ==================================================================
    セッション開始
 ================================================================== */
-// セッションを作って保存し、1問目を出す（from はノートへ戻る導線に使う節キー）
+// セッションを作って保存し、1問目を出す（from は出題の範囲。core.js の「出題の範囲」を参照）
 function beginSession(ids, from) {
+  if (!confirmDiscardSession()) return;
   startSession(ids);
   if (from) session.from = from;
   saveSession();
   renderQuiz();
+}
+
+// 途中のセッションに解答があれば、破棄して新しく始めてよいか確かめる
+function confirmDiscardSession() {
+  if (!session || session.finished) return true;
+  const t = tally(session);
+  const done = t.correct + t.assist + t.wrong;
+  return done === 0 ||
+    confirm("進行中のセッション（" + t.total + "問中 " + done + "問解答済み）を破棄して新しく始めますか？");
+}
+
+// 章・項目の全問を出題する
+function startScopeQuiz(key) {
+  const ids = scopeQuestionIds(key);
+  if (ids.length) beginSession(shuffle(ids), key);
+}
+
+// 章・項目のノートを開く
+function showScopeNote(key) {
+  if (isChapterScope(key)) showNotes(key);
+  else showNoteSection(key);
 }
 
 function startSession(ids) {
@@ -271,7 +311,7 @@ function updateRankBadge(qid) {
 }
 
 function renderQuiz() {
-  const q = QMAP.get(session.order[session.idx]);
+  const q = currentQuestion();
   answered = false;
   selection = [];
   rawOk = false;
@@ -346,7 +386,7 @@ function onChoice(orig, multi) {
 
 // picked は元の番号の配列（null はスキップ）
 function judge(picked) {
-  const q = QMAP.get(session.order[session.idx]);
+  const q = currentQuestion();
   const skipped = picked === null;
   const ok = !skipped && eqSet(picked, q.answer);
 
@@ -447,7 +487,7 @@ function refreshVerdict() {
 
 // 「不正解にする」／「やっぱり正解にする」
 function setManualResult(res) {
-  const q = QMAP.get(session.order[session.idx]);
+  const q = currentQuestion();
   const prev = session.results[session.idx];
   if (prev === res) return;
   recordStat(q.id, prev, res);
@@ -479,7 +519,7 @@ function updateHelpButton() {
 // この問題のノート（△ つまずいている問題は目立たせる）
 function updateNoteButton() {
   const btn = $("btnNoteQuiz");
-  const q = session && QMAP.get(session.order[session.idx]);
+  const q = currentQuestion();
   btn.hidden = !(q && q.sec);
   if (btn.hidden) return;
   const open = notePanelIsOpen();
@@ -534,8 +574,14 @@ function renderResult() {
 
   $("resultMsg").textContent = resultComment(rate);
 
-  // ノートの節から始めた場合は、戻る導線を出す
-  $("btnBackToNote").hidden = !session.from;
+  // 章・項目から始めた場合は、その範囲の全問とノートへの導線を出す
+  const from = session.from;
+  const scopeName = isChapterScope(from) ? "この章" : "この項目";
+  $("btnBackToNote").hidden = !from;
+  $("btnBackToNote").textContent = scopeName + "のノートへ";
+  $("btnRetrySame").textContent = from
+    ? scopeName + "の全問を解く（" + scopeQuestionIds(from).length + "問）"
+    : "同じ設定でもう一度";
 
   // 自力で正解できなかった問題（参照つき正解・未回答も含む）を再挑戦の対象にする
   const wrongIds = session.order.filter((id, i) => session.results[i] !== "correct");
@@ -654,16 +700,7 @@ $("btnCatNone").addEventListener("click", () => {
   updateCountHint();
 });
 
-$("btnStart").addEventListener("click", () => {
-  if (session && !session.finished) {
-    const t = tally(session);
-    if (t.correct + t.wrong > 0 &&
-        !confirm("進行中のセッション（" + t.total + "問中 " + (t.correct + t.wrong) + "問解答済み）を破棄して新しく始めますか？")) {
-      return;
-    }
-  }
-  beginSession(null);
-});
+$("btnStart").addEventListener("click", () => beginSession(null));
 
 $("btnResume").addEventListener("click", () => {
   // 未解答の最初の問題へ移動して再開
@@ -715,13 +752,13 @@ $("btnRetryWrong").addEventListener("click", () => {
   if (ids.length) beginSession(shuffle(ids), session.from);   // ノートへ戻る導線を保つ
 });
 $("btnRetrySame").addEventListener("click", () => {
-  // ノートの節から始めた場合は、同じ節をもう一度出題する
-  if (session.from) startSectionQuiz(session.from);
+  // 章・項目から始めた場合は、その範囲の全問を出題する
+  if (session.from) startScopeQuiz(session.from);
   else beginSession(null);
 });
 $("btnHomeFromResult").addEventListener("click", renderHome);
 $("btnBackToNote").addEventListener("click", () => {
-  if (session && session.from) showNoteSection(session.from);
+  if (session && session.from) showScopeNote(session.from);
   else showNotes();
 });
 
@@ -753,9 +790,7 @@ document.addEventListener("keydown", (e) => {
   // 試験を選ぶ前から使っていた端末（記録がある）は、最初に登録した試験（101）として続ける。記録が無ければ選択画面から
   if (!examId && hasProgress()) { examId = EXAM_ORDER[0]; save(EXAM_KEY, examId); }
 
-  // 学習中の試験の、保存済みのセッションを読み込む（壊れていたら破棄する）
-  session = normalizeSession(load(sessionKey(), null));
-  if (!session) remove(sessionKey());
+  loadSession();             // 学習中の試験の、保存済みのセッション
 
   applyConfigToForm();
 

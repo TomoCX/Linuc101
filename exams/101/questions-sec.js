@@ -1319,18 +1319,13 @@ const IMPORTANT_EXTRA = [
 
 /* ノートとの対応づけ・重要度・追加問題を反映する */
 (function applySections() {
-  const map = new Map(QUESTIONS.map(q => [q.id, q]));
-
   for (const [id, sec] of Object.entries(SECTION_MAP)) {
-    const q = map.get(Number(id));
+    const q = QMAP.get(Number(id));
     if (q) q.sec = sec;
   }
-  for (const q of SECTION_QUESTIONS) {
-    if (!map.has(q.id)) { QUESTIONS.push(q); map.set(q.id, q); }
-  }
-  for (const q of IMPORTANT_EXTRA) {
-    if (!map.has(q.id)) { QUESTIONS.push(q); map.set(q.id, q); }
-  }
+  // 追加の問題は addQuestions で登録する（QUESTIONS と QMAP の両方に入る）
+  addQuestions(SECTION_QUESTIONS.filter(q => !QMAP.has(q.id)));
+  addQuestions(IMPORTANT_EXTRA.filter(q => !QMAP.has(q.id)));
   // 重要度を割り当てる（101 の問題だけ。未指定は 2 とする）
   const mine = EXAMS["101"].cats;
   for (const q of QUESTIONS) {

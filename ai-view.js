@@ -158,7 +158,7 @@ const AI_VERDICT = {
 const AI_CONTEXT = {
   quiz() {
     if (!session) return null;
-    const q = QMAP.get(session.order[session.idx]);
+    const q = currentQuestion();
     const done = answered || curSkipped;
     const hideAnswer = !done && !aiCfg.withAnswer;
 
@@ -239,9 +239,7 @@ const AI_CONTEXT = {
       examInfo().title + " の累計: 全" + qs.length + "問中、解いたことがある " + (qs.length - n.untouched) + "問、" +
         "自力正解できた " + (n.solved + n.streak) + "問（うち2回以上つづけて正解 " + n.streak + "問）"
     ];
-    const weak = recMasteryByStats()
-      .filter(x => x.answered > 0 && x.ok < x.total)
-      .sort((a, b) => a.rate - b.rate).slice(0, 5);
+    const weak = recWeakSections().slice(0, 5);
     if (weak.length) {
       now.push("自力正解できていない問題が残っている節（正解率の低い順）:");
       for (const w of weak) now.push("- " + w.key + "　" + w.ok + "/" + w.total + "問");

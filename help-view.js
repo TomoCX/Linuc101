@@ -40,8 +40,7 @@ function helpInExamOrder(list, groupOf) {
 function highlight(text, q) {
   const safe = esc(text);
   if (!q) return safe;
-  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return safe.replace(new RegExp(escaped, "gi"), m => "<mark>" + m + "</mark>");
+  return safe.replace(new RegExp(reEscape(q), "gi"), m => "<mark>" + m + "</mark>");
 }
 
 function renderHelpGroups() {
@@ -168,9 +167,8 @@ function findRelatedCommands(q) {
       for (const z of zones) if (z.text.includes(k.toLowerCase())) score += z.w;
     }
     for (const t of tokens) {
-      const escaped = t.replace(/[.+*?^${}()|[\]\\]/g, "\\$&");
       // file.txt や data.tar.gz のような文字列に反応しないよう、前後にピリオドを許さない
-      const re = new RegExp("(^|[^a-z0-9_.-])" + escaped + "([^a-z0-9_.-]|$)");
+      const re = new RegExp("(^|[^a-z0-9_.-])" + reEscape(t) + "([^a-z0-9_.-]|$)");
       for (const z of zones) if (re.test(z.text)) score += z.w;
       // 選択肢がそのコマンドで始まる場合は「問われているコマンド」とみなす
       if (choices.some(c => c === t || c.startsWith(t + " "))) score += 4;

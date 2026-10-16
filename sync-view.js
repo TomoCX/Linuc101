@@ -4,33 +4,6 @@
 
 const SYNC_APP = "linuc101";
 
-// 保存済みセッションの健全性チェック（壊れていたら null を返す。exam を省くと学習中の試験）
-function normalizeSession(s, exam) {
-  if (!s || !Array.isArray(s.order) || !s.order.length) return null;
-  if (s.order.some(id => !QMAP.has(id))) return null;          // 削除された問題を含む
-  exam = exam || currentExam();
-  if (s.order.some(id => examOfTheme(QMAP.get(id).cat) !== exam)) return null;   // 別の試験の問題を含む
-  const n = s.order.length;
-  const fix = (arr) => (Array.isArray(arr) && arr.length === n) ? arr : new Array(n).fill(null);
-  s.results = fix(s.results);
-  s.picked  = fix(s.picked);
-  s.flags   = fix(s.flags);
-  s.perms   = fix(s.perms);       // 旧セッションは null → 元の順で表示される
-  if (typeof s.idx !== "number" || s.idx < 0 || s.idx >= n) s.idx = 0;
-  return s;
-}
-
-// 保存済みの出題設定を、いまのカテゴリ・項目に合わせて整える（起動時と取り込み時）
-function normalizeConfig(c) {
-  c.cats = (c.cats || []).filter(id => CATEGORIES[id]);
-  // 試験ごとに、1つも選ばれていなければ全部を選ぶ（カテゴリや試験が増えたときに追随）
-  for (const e of Object.values(EXAMS)) {
-    if (!c.cats.some(id => e.cats.includes(id))) c.cats.push(...e.cats.filter(id => CATEGORIES[id]));
-  }
-  if (c.keepHelp === undefined) c.keepHelp = true;        // 旧設定の互換
-  return c;
-}
-
 // 古い版のデータのセッション（session ＝ 101、session102 ＝ 102）を、試験ID → セッションの形にする
 function legacySessions(data) {
   const s = {};
@@ -147,7 +120,7 @@ function applyPayload(data, silent) {
     if (s) save(sessionKey(exam), s);
     else remove(sessionKey(exam));
   }
-  session = normalizeSession(load(sessionKey(), null));
+  loadSession();
 
   if (data.config && typeof data.config === "object") {
     config = normalizeConfig(data.config);
@@ -155,8 +128,7 @@ function applyPayload(data, silent) {
   }
 
   // 変更時刻は取り込んだデータのものに合わせる（同期の新旧判定のため）
-  lastChangeAt = new Date(data.savedAt).getTime() || Date.now();
-  try { localStorage.setItem(STAMP_KEY, JSON.stringify(lastChangeAt)); } catch (e) { /* noop */ }
+  stampNow(new Date(data.savedAt).getTime());
   syncMuted = false;
 
   applyConfigToForm();

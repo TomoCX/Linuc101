@@ -49,7 +49,7 @@ function paintNotePanelStatus() {
 // 出題中の問題のノートを開く／閉じる
 function toggleQuizNote() {
   if (notePanelIsOpen()) { closeNotePanel(); return; }
-  const q = QMAP.get(session.order[session.idx]);
+  const q = currentQuestion();
   if (q && q.sec) openNotePanel(q.sec);
 }
 

@@ -1865,8 +1865,9 @@ mark.kp::before, code.kp::before {
 .due-card h2 { display: flex; align-items: baseline; gap: 4px; }
 .due-count { color: var(--streak); font-size: 22px; }
 
-/* 項目ごとに解く（期限が来た問題を節ごとに分けた一覧） */
+/* 章ごと・項目ごとに解く（期限が来た問題を主題・節ごとに分けた一覧） */
 .due-secs { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+.due-secs + .due-secs { margin-top: 10px; }
 .due-secs > summary { cursor: pointer; font-size: 13px; color: var(--muted); user-select: none; }
 .due-secs > summary::marker { color: var(--streak); }
 .due-sec-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 6px; margin-top: 10px; }

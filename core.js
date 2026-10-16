@@ -39,9 +39,9 @@ function remove(key) {
   try { localStorage.removeItem(key); } catch (e) { /* noop */ }
 }
 
-// 進捗の最終変更時刻を記録する
-function stampNow() {
-  lastChangeAt = Date.now();
+// 進捗の最終変更時刻を記録する（at を省くといま。同期で取り込んだときは相手の時刻に合わせる）
+function stampNow(at) {
+  lastChangeAt = at || Date.now();
   try { localStorage.setItem(STAMP_KEY, JSON.stringify(lastChangeAt)); } catch (e) { /* noop */ }
 }
 
@@ -72,6 +72,7 @@ const EXAMS = {};             // 試験ID → 定義（登録した順に EXAM_O
 const EXAM_ORDER = [];
 const CATEGORIES = {};        // 主題の番号 → 名前（全試験）
 const QUESTIONS = [];         // 問題（全試験）
+const QMAP = new Map();       // 問題ID → 問題
 const CARDS = [];             // 単語帳（全試験）
 const NOTE_SOURCES = [];      // 暗記ノートの原稿 { exam, md }
 const NOTE_STARS = {};        // ノートの節キー → 重要度（書いていない節は 2）
@@ -99,7 +100,9 @@ function registerExam(def) {
   Object.assign(CATEGORIES, def.categories);
   SYNCED_KEYS.push(e.sessionKey);
 }
-function addQuestions(list) { QUESTIONS.push(...list); }
+function addQuestions(list) {
+  for (const q of list) { QUESTIONS.push(q); QMAP.set(q.id, q); }
+}
 function addCards(list) { CARDS.push(...list); }
 function addNotes(exam, md) { NOTE_SOURCES.push({ exam, md }); }
 function addNoteStars(map) { Object.assign(NOTE_STARS, map); }
@@ -127,10 +130,6 @@ function inExam(theme) { return examOfTheme(theme) === currentExam(); }
 function isIntroTheme(theme) { return Object.values(EXAMS).some(e => e.intro === theme); }
 function helpGroupExam(group) { return HELP_GROUP_EXAM[group] || EXAM_ORDER[0]; }
 
-// 学習中の試験のセッションを読み書きする
-function sessionKey(id) { return examInfo(id).sessionKey; }
-function saveSession() { if (session) save(sessionKey(), session); }
-
 /* ---------------- アプリの状態 ---------------- */
 let session      = null;                     // 学習中の試験の進行中のセッション（app.js の初期化で読み込む）
 let stats        = load(STATS_KEY, {});      // { 問題ID: {c:自力正解, w:不正解, a:参照正解} }
@@ -149,6 +148,11 @@ const $ = (id) => document.getElementById(id);
 // HTMLに埋め込む文字列のエスケープ
 function esc(s) {
   return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+// 正規表現の中で文字どおりに扱えるようにする（検索語・重要語・用語の照合に使う）
+function reEscape(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\\/]/g, "\\$&");
 }
 
 /* ---------------- HTMLの組み立て ----------------
@@ -250,12 +254,66 @@ function examQuestions(id) {
   if (!examQuestionsCache[id]) examQuestionsCache[id] = QUESTIONS.filter(q => examOfTheme(q.cat) === id);
   return examQuestionsCache[id];
 }
+// 1つの章（主題・カテゴリ）の問題
+function catQuestions(cat) { return examQuestions(examOfTheme(cat)).filter(q => q.cat === cat); }
 function examCategories(id) {
   return examInfo(id).cats.filter(c => CATEGORIES[c]).map(c => [c, CATEGORIES[c]]);
 }
 function examCards(id) {
   id = id || currentExam();
   return CARDS.filter(c => examOfSec(c.sec) === id);
+}
+
+/* ---------------- 出題の範囲（session.from） ----------------
+   ノートの節キー（"主題/見出し"）か、章（主題の番号。"/" を含まない）。
+   範囲から始めたセッションは、結果画面からその範囲の全問とノートへ移れる。
+------------------------------------------------------ */
+function isChapterScope(key) { return !!key && !key.includes("/"); }
+function scopeQuestionIds(key) {
+  return isChapterScope(key) ? catQuestions(key).map(q => q.id) : secQuestionIds(key);
+}
+
+/* ---------------- 進行中のセッション ----------------
+   試験ごとに別のキーへ保存する（registerExam の sessionKey）。
+   session = { order: 問題IDの配列, idx, results, picked, flags, perms, finished, startedAt, from? }
+------------------------------------------------------ */
+function sessionKey(id) { return examInfo(id).sessionKey; }
+function saveSession() { if (session) save(sessionKey(), session); }
+
+// 学習中の試験の、保存済みのセッションを読み込む（壊れていたら破棄する）
+function loadSession() {
+  session = normalizeSession(load(sessionKey(), null));
+  if (!session) remove(sessionKey());
+}
+
+// 保存済みセッションの健全性チェック（壊れていたら null を返す。exam を省くと学習中の試験）
+function normalizeSession(s, exam) {
+  if (!s || !Array.isArray(s.order) || !s.order.length) return null;
+  if (s.order.some(id => !QMAP.has(id))) return null;          // 削除された問題を含む
+  exam = exam || currentExam();
+  if (s.order.some(id => examOfTheme(QMAP.get(id).cat) !== exam)) return null;   // 別の試験の問題を含む
+  const n = s.order.length;
+  const fix = (arr) => (Array.isArray(arr) && arr.length === n) ? arr : new Array(n).fill(null);
+  s.results = fix(s.results);
+  s.picked  = fix(s.picked);
+  s.flags   = fix(s.flags);
+  s.perms   = fix(s.perms);       // 旧セッションは null → 元の順で表示される
+  if (typeof s.idx !== "number" || s.idx < 0 || s.idx >= n) s.idx = 0;
+  return s;
+}
+
+// 出題中の問題
+function currentQuestion() { return session ? QMAP.get(session.order[session.idx]) : null; }
+
+// 保存済みの出題設定を、いまのカテゴリ・項目に合わせて整える（起動時と取り込み時）
+function normalizeConfig(c) {
+  c.cats = (c.cats || []).filter(id => CATEGORIES[id]);
+  // 試験ごとに、1つも選ばれていなければ全部を選ぶ（カテゴリや試験が増えたときに追随）
+  for (const e of Object.values(EXAMS)) {
+    if (!c.cats.some(id => e.cats.includes(id))) c.cats.push(...e.cats.filter(id => CATEGORIES[id]));
+  }
+  if (c.keepHelp === undefined) c.keepHelp = true;        // 旧設定の互換
+  return c;
 }
 
 /* ---------------- 問題の表示に使う道具 ---------------- */
@@ -309,8 +367,8 @@ const RANK_LABEL = ["未着手", "つまずき", "正解", "連続正解"];
 const STREAK_RANK = 2;              // このランクに上がるのに必要な連続正解の回数
 
 function qRank(id) {
+  if (statTries(id) === 0) return 0;
   const s = statOf(id);
-  if (s.c + s.w + s.a === 0) return 0;
   if (s.s >= STREAK_RANK) return 3;
   return s.c > 0 ? 2 : 1;
 }
@@ -339,8 +397,8 @@ function daysSince(t) { return t ? (Date.now() - t) / DAY_MS : Infinity; }
 
 // 復習の期限が来ているか（解いたことがない問題は対象外）
 function isDue(id) {
+  if (statTries(id) === 0) return false;
   const s = statOf(id);
-  if (s.c + s.w + s.a === 0) return false;
   return daysSince(s.t) >= reviewDays(s.s);
 }
 
